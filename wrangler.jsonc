@@ -1,0 +1,9 @@
+// Static demo on Cloudflare Workers. Run `npm run build` first (the deploy script does).
+// The custom domain kineticui.kauper.co is attached in the Cloudflare dashboard, not here.
+{
+  "name": "kinetic-ui",
+  "compatibility_date": "2026-10-28",
+  "assets": {
+    "directory": "./apps/demo/dist"
+  }
+}

@@ -4,7 +4,7 @@ A headless model that simplifies your UI when the user is moving.
 
 Kinetic UI detects walking from the phone's accelerometer. When the user starts walking, a signup form switches from a full form to a one-question-at-a-time stepper with larger targets. When they stop, the full form returns. Answers survive every switch. This is a prototype; the design choices, rejected options and known limits are written down in [DECISIONS.md](DECISIONS.md).
 
-Live demo: https://kkauper.github.io/kinetic-ui/ (works on a phone over HTTPS).
+Live demo: https://kineticui.kauper.co (works on a phone over HTTPS).
 
 ## How it works
 
@@ -137,9 +137,22 @@ npm run typecheck
 npm run build
 ```
 
+## Deploy
+
+The demo is a static site served by Cloudflare Workers (static assets) at https://kineticui.kauper.co. Cloudflare builds it from the GitHub repo. Every push to `main` deploys. Other branches get their own preview URL (shown under the Worker's Previews in the dashboard). GitHub Actions (`.github/workflows/ci.yml`) runs tests, typecheck and build on every push to `main` and on pull requests; it does not deploy.
+
+One-time setup:
+
+1. In the Cloudflare dashboard, go to Workers & Pages, Create application, and pick the GitHub repo. Name the Worker `kinetic-ui` (it must match `name` in `wrangler.jsonc`).
+2. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. Leave the root directory at `/` (the repo root).
+3. Save and deploy. The Node version defaults to a current one; to pin it, set `NODE_VERSION` under Settings, Build, or add a `.node-version` file.
+4. Attach the domain: Worker, Settings, Domains & Routes, Add, Custom Domain, `kineticui.kauper.co`. The `kauper.co` zone must be on Cloudflare; Cloudflare then creates the DNS record and certificate.
+
+Manual deploy from a machine logged in with `npx wrangler login`: `npm run deploy`.
+
 ## Test on a real phone
 
-1. Motion sensors only work over HTTPS, and iOS asks for permission on a tap. The easiest path is the deployed demo URL above. To deploy your own copy, push to `main`. One-time setting: repository Settings, Pages, Source: GitHub Actions. The workflow is `.github/workflows/deploy.yml`.
+1. Motion sensors only work over HTTPS, and iOS asks for permission on a tap. The easiest path is the deployed demo at https://kineticui.kauper.co. To host your own copy, see [Deploy](#deploy).
 2. iPhone (Safari): open the URL, tap "Walking mode", allow "Motion & Orientation Access", then walk at a normal pace for 5 to 8 s. The stepper appears. Stop for about 10 s and the full form returns.
    If you tapped "Don't allow", iOS usually remembers it for the site. Close the tab and reopen it, or clear the site's data (usually Settings, Apps, Safari, Advanced, Website Data). Menus move between iOS versions.
 3. Android (Chrome): open the URL, tap "Walking mode" (a permission prompt may or may not appear, depending on the Chrome version), then walk.
@@ -184,7 +197,8 @@ packages/
   react/   hooks over the store contract
 apps/
   demo/    Vite + React + Radix Themes; stores.ts wires the singletons, demo-controls/ owns the sources
-.github/workflows/deploy.yml   GitHub Pages deploy
+.github/workflows/ci.yml       tests, typecheck and build on push and PR
+wrangler.jsonc                 Cloudflare Workers static assets config
 DECISIONS.md                   design record
 ```
 

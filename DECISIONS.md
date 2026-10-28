@@ -99,7 +99,7 @@ Chips use `onPointerDown` → `preventDefault` so the input keeps focus and the 
 - **The simulator source** makes the hysteresis testable on a desktop without a phone (1.8 steps/s → moving after about 7 s).
 
 ## Hosting
-GitHub Pages via the official Actions flow (`configure-pages`, `upload-pages-artifact`, `deploy-pages`), Vite `base: '/kinetic-ui/'`. The workflow runs tests and typecheck before building, so a red build never deploys. `cancel-in-progress: true`, because in a single-author repo the newest push should win. Rejected: Cloudflare Pages (equally free, but one more account; Pages keeps code and hosting in one place).
+Cloudflare Workers with static assets, at `kineticui.kauper.co`, deployed by Cloudflare's Git integration (Workers Builds): every push to `main` deploys, other branches get preview URLs. Why: a custom subdomain on the owner's own domain, hosting that does not depend on the repo being public, a free tier that covers static assets, and Git-connected deploys with previews. Cloudflare's docs say to start new projects on Workers, so Pages was not used. Vite `base` is `/` because the site sits at the subdomain root. GitHub Actions (`ci.yml`) still runs tests, typecheck and build on every push and PR. Rejected: GitHub Pages (the first setup: needs a public repo on the free plan, a separate CNAME setup for a custom domain, and the `/kinetic-ui/` base path).
 
 ## Known limits
 - The step detector is demo-grade. It will misread a phone in a swinging bag, running (over the band), stairs, vehicles (bumpy roads can land in the band), and slow walkers below 1.5 steps/s. The asymmetric hysteresis and the Show-full escape hatch exist because of this.
