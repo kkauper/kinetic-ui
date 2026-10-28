@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_MOTION_CONFIG as config } from './config';
+import { initialMachine, isWalkingCadence, stepMachine } from './machine';
+
+/** Feeds `walking` once per second from `from` to `to` (inclusive). */
+function run(m: ReturnType<typeof initialMachine>, walking: boolean, from: number, to: number) {
+  let state = m;
+  for (let t = from; t <= to; t += 1000) state = stepMachine(state, { now: t, walking }, config);
+  return state;
+}
+
+describe('stepMachine', () => {
+  it('enters moving only after 5s of sustained walking', () => {
+    let m = initialMachine(0);
+    m = run(m, true, 0, 4000);
+    expect(m.state).toBe('still');
+    expect(m.pending).toBe('moving');
+    m = run(m, true, 5000, 5000);
+    expect(m.state).toBe('moving');
+    expect(m.enteredAt).toBe(5000);
+    expect(m.pending).toBeNull();
+  });
+
+  it('does not enter moving after a 2s walk', () => {
+    let m = run(initialMachine(0), true, 0, 2000);
+    m = run(m, false, 3000, 20000);
+    expect(m.state).toBe('still');
+    expect(m.pending).toBeNull();
+  });
+
+  it('restarts the clock after a brief interruption', () => {
+    let m = run(initialMachine(0), true, 0, 3000);
+    m = run(m, false, 4000, 4000);
+    m = run(m, true, 5000, 9000);
+    expect(m.state).toBe('still');
+    m = run(m, true, 10000, 10000);
+    expect(m.state).toBe('moving');
+  });
+
+  it('exits moving only after 10s of non-walking', () => {
+    let m = run(initialMachine(0), true, 0, 5000);
+    expect(m.state).toBe('moving');
+    m = run(m, false, 6000, 15000);
+    expect(m.state).toBe('moving');
+    m = run(m, false, 16000, 16000);
+    expect(m.state).toBe('still');
+  });
+
+  it('survives a 4s pause while moving', () => {
+    let m = run(initialMachine(0), true, 0, 5000);
+    m = run(m, false, 6000, 9000);
+    m = run(m, true, 10000, 20000);
+    expect(m.state).toBe('moving');
+    expect(m.pending).toBeNull();
+  });
+
+  it('returns the same reference when nothing changes', () => {
+    const m = initialMachine(0);
+    expect(stepMachine(m, { now: 100, walking: false }, config)).toBe(m);
+    const pending = stepMachine(m, { now: 100, walking: true }, config);
+    expect(stepMachine(pending, { now: 200, walking: true }, config)).toBe(pending);
+  });
+});
+
+describe('isWalkingCadence', () => {
+  it('is inclusive at both ends', () => {
+    expect(isWalkingCadence(1.5, config)).toBe(true);
+    expect(isWalkingCadence(2.5, config)).toBe(true);
+    expect(isWalkingCadence(1.4, config)).toBe(false);
+    expect(isWalkingCadence(2.6, config)).toBe(false);
+  });
+});
