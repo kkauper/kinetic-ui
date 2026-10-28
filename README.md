@@ -146,7 +146,7 @@ One-time setup:
 1. In the Cloudflare dashboard, go to Workers & Pages, Create application, and pick the GitHub repo. Name the Worker `kinetic-ui` (it must match `name` in `wrangler.jsonc`).
 2. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. Leave the root directory at `/` (the repo root).
 3. Save and deploy. The Node version defaults to a current one; to pin it, set `NODE_VERSION` under Settings, Build, or add a `.node-version` file.
-4. Attach the domain: Worker, Settings, Domains & Routes, Add, Custom Domain, `kineticui.kauper.co`. The `kauper.co` zone must be on Cloudflare; Cloudflare then creates the DNS record and certificate.
+4. Attach the domain: Worker, Settings, Domains & Routes, Add, Custom Domain, `kineticui.kauper.co`. The `kauper.co` zone is managed in Cloudflare, so Cloudflare creates the DNS record and certificate itself. Delete any existing `kineticui` CNAME first.
 
 Manual deploy from a machine logged in with `npx wrangler login`: `npm run deploy`.
 
