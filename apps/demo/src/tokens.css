@@ -50,10 +50,38 @@ body {
   border-bottom: 1px dashed var(--gray-7);
 }
 
-.k-demo-controls__title {
-  margin: 0;
+.k-demo-controls__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 32px;
+}
+
+.k-demo-controls__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-1);
+}
+
+.k-demo-controls__status {
   font-size: var(--font-size-1);
   color: var(--gray-11);
+}
+
+.k-debug-tools__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: var(--font-size-1);
+}
+
+.k-debug-tools__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .k-appbar {
@@ -74,6 +102,10 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* The sticky thumb bar must sit flush with the viewport bottom, so only the full form gets bottom padding. */
+.k-main > .k-stack {
   padding-bottom: 24px;
 }
 
@@ -154,6 +186,8 @@ body {
 
 .k-stepper__body {
   flex: 1;
+  /* Never let content end right against the sticky thumb bar. */
+  padding-bottom: var(--k-gap);
   display: flex;
   flex-direction: column;
   gap: var(--k-gap);
@@ -211,4 +245,58 @@ body {
     animation: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Debug overlay: read-only, bottom-left just above the thumb bar, never blocks taps. */
+.k-debug {
+  position: fixed;
+  left: 8px;
+  bottom: 104px;
+  z-index: 10;
+  max-width: 200px;
+  margin: 0;
+  padding: 4px 6px;
+  font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace;
+  color: var(--gray-12);
+  background: var(--color-panel-translucent);
+  border: 1px solid var(--gray-a6);
+  border-radius: 4px;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.k-debug__list {
+  margin: 0;
+}
+
+.k-debug__row {
+  display: flex;
+  gap: 6px;
+}
+
+.k-debug__row dt {
+  flex: 0 0 6em;
+  color: var(--gray-11);
+}
+
+.k-debug__row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Email domain chips: compact so the three fit on one row at phone width. */
+.k-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.k-chip {
+  padding-inline: 10px;
+}
+
+/* Tooling (demo controls) opts out of the touch-target floor: it is not product UI. */
+.k-demo-controls .rt-Button {
+  min-height: 0;
 }

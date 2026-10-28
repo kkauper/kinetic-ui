@@ -4,6 +4,7 @@ import { Badge, Button, Callout, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
 import { FieldRenderer } from './fields/FieldRenderer';
 import { focusField } from './fields/focusField';
+import { normalizeEmailAnswers } from './fields/normalize';
 import { useUiSize } from './ui/useUiSize';
 import { formModel as model } from './stores';
 
@@ -16,6 +17,7 @@ export function FullForm() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    normalizeEmailAnswers(model);
     if (model.validateAll()) {
       setSubmitted(true);
       return;

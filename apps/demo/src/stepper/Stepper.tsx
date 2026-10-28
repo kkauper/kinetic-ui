@@ -4,6 +4,7 @@ import { Badge, Button, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { focusField } from '../fields/focusField';
+import { normalizeEmailAnswers } from '../fields/normalize';
 import { useUiSize } from '../ui/useUiSize';
 import { formModel as model, showFull } from '../stores';
 import { useSwipeBack } from './useSwipeBack';
@@ -44,6 +45,7 @@ export function Stepper() {
 
   function next() {
     clearAdvance();
+    normalizeEmailAnswers(model);
     // An unanswered slider shows a value; pressing Next confirms it explicitly.
     if (field?.kind === 'slider' && !model.isAnswered(field.id)) {
       model.setAnswer(field.id, field.defaultValue ?? field.min);

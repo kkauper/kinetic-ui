@@ -7,7 +7,7 @@ import { motionStore } from '../stores';
  * during the user gesture, and `start()` reaches the source synchronously.
  * Failures are shown from `snapshot.error`, so the rejection is swallowed.
  */
-export function useSource(source: MotionSource): Promise<void> {
+export function switchSource(source: MotionSource): Promise<void> {
   void motionStore.setSource(source).catch(() => undefined);
   return motionStore.start().catch(() => undefined);
 }

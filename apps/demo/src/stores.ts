@@ -4,6 +4,7 @@ import {
   createManualSource,
   createMotionStore,
   createShowFullPolicy,
+  createSimulatorSource,
   createStoragePersistence,
   signupSchema,
 } from '@kinetic-ui/core';
@@ -19,6 +20,9 @@ export const manualSource = createManualSource();
 
 /** Real sensor; needs a user gesture (iOS) and HTTPS. Only `demo-controls` may use it. */
 export const accelerometerSource = createAccelerometerSource();
+
+/** Synthetic walking for desktop tuning (debug overlay). */
+export const simulatorSource = createSimulatorSource();
 
 export const motionStore = createMotionStore({ source: manualSource });
 

@@ -5,4 +5,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   base: '/kinetic-ui/',
+  // Lets a Cloudflare quick tunnel reach the dev server (Vite blocks unknown Host headers).
+  server: { allowedHosts: ['.trycloudflare.com'] },
 });

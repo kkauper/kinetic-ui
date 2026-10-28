@@ -1,79 +1,89 @@
+import { useState } from 'react';
 import { Button, Callout, Switch } from '@radix-ui/themes';
 import { useMotion } from '@kinetic-ui/react';
 import { accelerometerSource, manualSource, motionStore } from '../stores';
-import { useUiSize } from '../ui/useUiSize';
-import { useSource } from './useSource';
+import { DebugOverlay, readDebugPreference, writeDebugPreference } from './DebugOverlay';
+import { DebugTools } from './DebugTools';
+import { switchSource } from './switchSource';
 
 function sensorUnavailableReason(): string | null {
   if (typeof window === 'undefined') return null;
-  if (!window.isSecureContext) return 'Needs HTTPS, so it will likely fail here.';
+  if (!window.isSecureContext) return 'Walking mode needs HTTPS, so it will likely fail here.';
   if (!('DeviceMotionEvent' in window)) return "This browser doesn't expose device motion.";
   return null;
 }
 
 /**
  * Stands in for input devices (a manual switch, the phone's motion sensor).
- * It is the only place that touches motion sources; UI components just read
- * the motion state.
+ * It is tooling, not product UI: it keeps fixed small Radix sizes instead of
+ * the motion-dependent ones, and it is the only place (with the debug tools)
+ * that touches motion sources.
  */
 export function DemoControls() {
-  const { controlSize, buttonSize } = useUiSize();
   const snapshot = useMotion(motionStore);
   const sensorActive = snapshot.source === accelerometerSource.id;
   const sensorRunning = sensorActive && snapshot.running;
   const starting = sensorActive && !snapshot.running && !snapshot.error;
-  const manualWalking = !sensorActive && manualSource.get() === 'moving';
+  const manualWalking = !sensorActive && snapshot.source === manualSource.id && manualSource.get() === 'moving';
+  const [debug, setDebug] = useState(readDebugPreference);
   const unavailable = sensorUnavailableReason();
 
   function toggleManual(checked: boolean) {
     manualSource.set(checked ? 'moving' : 'still');
-    if (sensorActive) void useSource(manualSource);
+    if (snapshot.source !== manualSource.id) void switchSource(manualSource);
   }
 
   function toggleSensor() {
     if (sensorRunning) {
       manualSource.set('still');
-      void useSource(manualSource);
+      void switchSource(manualSource);
     } else {
-      void useSource(accelerometerSource);
+      void switchSource(accelerometerSource);
     }
   }
 
   let status = '';
   if (starting) status = 'Waiting for motion data…';
   else if (sensorRunning) {
-    status = `Walking mode on — ${snapshot.detected === 'moving' ? 'Moving' : 'Still'}. Switches after about 5 s of walking.`;
+    status = `Walking mode on: ${snapshot.detected === 'moving' ? 'moving' : 'still'}. Switches after ~5 s.`;
   }
 
   return (
-    <section className="k-demo-controls" aria-labelledby="demo-controls-title">
-      <h2 id="demo-controls-title" className="k-demo-controls__title">
-        Demo controls
-      </h2>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 'var(--k-target-min)' }}>
-        <Switch size={controlSize} checked={manualWalking} onCheckedChange={toggleManual} />
-        Simulate walking
-      </label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-        <Button
-          variant="outline"
-          size={buttonSize}
-          onClick={toggleSensor}
-          aria-describedby="walking-mode-help"
-        >
+    <section className="k-demo-controls" aria-label="Demo controls">
+      <div className="k-demo-controls__row">
+        <label className="k-demo-controls__switch">
+          <Switch size="1" checked={manualWalking} onCheckedChange={toggleManual} />
+          Simulate walking
+        </label>
+        <Button variant="outline" size="1" onClick={toggleSensor} aria-describedby="walking-mode-help">
           {sensorRunning ? 'Stop walking mode' : 'Walking mode'}
         </Button>
-        <span id="walking-mode-help" className="k-field__hint">
-          Uses your phone&apos;s motion sensor to detect walking.
-          {unavailable ? ` ${unavailable}` : ''}
-        </span>
-        <div aria-live="polite">{status}</div>
-        {snapshot.error ? (
-          <Callout.Root color="red" role="alert">
-            <Callout.Text>{snapshot.error}</Callout.Text>
-          </Callout.Root>
-        ) : null}
+        <Button
+          variant="outline"
+          color="gray"
+          size="1"
+          aria-pressed={debug}
+          onClick={() => {
+            setDebug(!debug);
+            writeDebugPreference(!debug);
+          }}
+        >
+          Debug
+        </Button>
       </div>
+      <span id="walking-mode-help" className={unavailable ? 'k-field__hint' : 'k-sr-only'}>
+        Uses your phone&apos;s motion sensor to detect walking. {unavailable ?? ''}
+      </span>
+      <div aria-live="polite" className="k-demo-controls__status">
+        {status}
+      </div>
+      {snapshot.error ? (
+        <Callout.Root color="red" role="alert" size="1">
+          <Callout.Text>{snapshot.error}</Callout.Text>
+        </Callout.Root>
+      ) : null}
+      {debug ? <DebugTools /> : null}
+      {debug ? <DebugOverlay /> : null}
     </section>
   );
 }

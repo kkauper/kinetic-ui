@@ -8,19 +8,6 @@ import type { FieldProps } from './types';
 export function TextInputField({ field, value, error, onChange, presentation, labelAddon, className }: FieldProps<TextFieldSchema>) {
   const { controlSize } = useUiSize();
   const ids = fieldIds(field.id);
-  const isEmail = field.format === 'email';
-  // Email: right keyboard, no auto-capitalisation or autocorrect. Plain: browser autofill token.
-  const inputProps = isEmail
-    ? ({
-        type: 'email',
-        inputMode: 'email',
-        autoComplete: field.autocomplete ?? 'email',
-        autoCapitalize: 'none',
-        autoCorrect: 'off',
-        spellCheck: false,
-      } as const)
-    : ({ type: 'text', autoComplete: field.autocomplete } as const);
-
   return (
     <FieldFrame
       field={field}
@@ -31,7 +18,8 @@ export function TextInputField({ field, value, error, onChange, presentation, la
       labelFor={ids.control}
     >
       <TextField.Root
-        {...inputProps}
+        type="text"
+        autoComplete={field.autocomplete}
         id={ids.control}
         size={controlSize}
         value={typeof value === 'string' ? value : ''}

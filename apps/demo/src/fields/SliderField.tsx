@@ -1,30 +1,11 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Slider } from '@radix-ui/themes';
 import type { SliderFieldSchema } from '@kinetic-ui/core';
+import { useThumbA11y } from '../ui/useThumbA11y';
 import { useUiSize } from '../ui/useUiSize';
 import { FieldFrame } from './FieldFrame';
 import { describedBy, fieldIds } from './ids';
 import type { FieldProps } from './types';
-
-/**
- * Radix Themes forwards aria props to the slider ROOT, but the element with
- * role="slider" is the inner Thumb, which gets no name and no aria-valuetext.
- * This hook sets them on the thumb after each render (Radix does not render
- * these attributes itself, so it never overwrites them).
- */
-function useThumbA11y(
-  rootRef: React.RefObject<HTMLElement | null>,
-  attrs: Record<string, string | undefined>,
-): void {
-  useLayoutEffect(() => {
-    const thumb = rootRef.current?.querySelector<HTMLElement>('[role="slider"]');
-    if (!thumb) return;
-    for (const [name, value] of Object.entries(attrs)) {
-      if (value === undefined) thumb.removeAttribute(name);
-      else thumb.setAttribute(name, value);
-    }
-  });
-}
 
 export function SliderField({ field, value, error, onChange, presentation, labelAddon, className }: FieldProps<SliderFieldSchema>) {
   const { controlSize } = useUiSize();
