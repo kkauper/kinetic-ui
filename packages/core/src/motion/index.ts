@@ -7,3 +7,4 @@ export * from './dom';
 export * from './show-full';
 export * from './sources/manual';
 export * from './sources/simulator';
+export * from './sources/accelerometer';

@@ -1,5 +1,6 @@
 import {
   createFormModel,
+  createAccelerometerSource,
   createManualSource,
   createMotionStore,
   createShowFullPolicy,
@@ -15,6 +16,9 @@ export const formModel = createFormModel(signupSchema, {
 
 /** The only handle on an input device; only `demo-controls` may use it. */
 export const manualSource = createManualSource();
+
+/** Real sensor; needs a user gesture (iOS) and HTTPS. Only `demo-controls` may use it. */
+export const accelerometerSource = createAccelerometerSource();
 
 export const motionStore = createMotionStore({ source: manualSource });
 
