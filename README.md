@@ -195,3 +195,7 @@ DECISIONS.md                   design record
 - No backend or auth; "Create account" only validates.
 
 More in [DECISIONS.md](DECISIONS.md#known-limits).
+
+## License
+
+Copyright 2026 Kai Kauper. Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
