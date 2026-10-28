@@ -1,0 +1,214 @@
+/* The "moving" lever: tokens swapped by <html data-motion>, not scattered overrides. */
+:root {
+  --k-target-min: 44px;
+  --k-gap: 16px;
+  --k-field-gap: 24px;
+  --k-font-question: 1.125rem;
+  --k-thumb-zone-pad: 12px;
+}
+
+[data-motion='moving'] {
+  --k-target-min: 56px;
+  --k-gap: 20px;
+  --k-field-gap: 32px;
+  --k-font-question: 1.5rem;
+  --k-thumb-zone-pad: 16px;
+}
+
+body {
+  margin: 0;
+}
+
+.rt-Button,
+.rt-RadioCardsItem,
+.rt-TextFieldRoot {
+  min-height: var(--k-target-min);
+}
+
+/*
+ * DELIBERATE OVERRIDE of Radix Themes: its largest slider thumb is ~14px, far
+ * below a comfortable touch target while walking. Radix sets these variables
+ * per size on .rt-SliderRoot, so we raise them here (the thumb's ::before hit
+ * area is 3x the thumb size).
+ */
+[data-motion='moving'] .rt-SliderRoot {
+  --slider-track-size: 12px;
+  --slider-thumb-size: 32px;
+}
+
+/* Layout */
+.k-app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+.k-demo-controls {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--gray-7);
+}
+
+.k-demo-controls__title {
+  margin: 0;
+  font-size: var(--font-size-1);
+  color: var(--gray-11);
+}
+
+.k-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-gap);
+  min-height: var(--k-target-min);
+  padding: 8px 0;
+}
+
+.k-appbar__title {
+  margin: 0;
+  font-size: var(--font-size-4);
+}
+
+.k-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.k-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-field-gap);
+}
+
+.k-callout {
+  margin-bottom: var(--k-gap);
+}
+
+/* Fields */
+.k-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 4px solid transparent;
+}
+
+.k-field--deferred {
+  border-left-color: var(--accent-9);
+}
+
+.k-field__label-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.k-field__hint {
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+}
+
+.k-field__error {
+  color: var(--red-11);
+  font-size: var(--font-size-2);
+}
+
+.k-field__value {
+  font-weight: 500;
+}
+
+.k-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Stepper */
+.k-stepper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* Let vertical scrolling work natively while horizontal swipes reach us. */
+  touch-action: pan-y;
+}
+
+.k-stepper__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--k-gap);
+}
+
+.k-stepper__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-gap);
+}
+
+.k-stepper__heading {
+  margin: 0;
+  font-size: var(--k-font-question);
+  line-height: 1.3;
+}
+
+.k-stepper__heading:focus-visible {
+  outline: 3px solid var(--focus-8);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.k-thumb-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-gap);
+  padding: var(--k-thumb-zone-pad) 0 calc(var(--k-thumb-zone-pad) + env(safe-area-inset-bottom));
+  background: var(--color-background);
+  border-top: 1px solid var(--gray-6);
+}
+
+.k-thumb-bar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--k-gap);
+}
+
+.k-later-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-8);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
