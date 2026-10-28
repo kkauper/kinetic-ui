@@ -1,0 +1,55 @@
+{
+  "id": "signup",
+  "version": 1,
+  "title": "Create your account",
+  "fields": [
+    {
+      "id": "email",
+      "kind": "text",
+      "label": "Email",
+      "format": "email",
+      "autocomplete": "email",
+      "required": true,
+      "deferrable": false
+    },
+    {
+      "id": "firstName",
+      "kind": "text",
+      "label": "First name",
+      "format": "plain",
+      "autocomplete": "given-name",
+      "deferrable": true
+    },
+    {
+      "id": "referral",
+      "kind": "choice",
+      "label": "How did you hear about us?",
+      "options": [
+        { "value": "search", "label": "Search engine" },
+        { "value": "friend", "label": "A friend" },
+        { "value": "social", "label": "Social media" },
+        { "value": "other", "label": "Something else" }
+      ]
+    },
+    {
+      "id": "newsletter",
+      "kind": "toggle",
+      "label": "Send me the monthly newsletter"
+    },
+    {
+      "id": "frequency",
+      "kind": "slider",
+      "label": "How often would you use this?",
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "valueLabels": {
+        "0": "Never",
+        "1": "Monthly",
+        "2": "Weekly",
+        "3": "Several times a week",
+        "4": "Daily"
+      }
+    }
+  ]
+}
