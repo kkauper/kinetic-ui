@@ -28,6 +28,9 @@ class DemoGraph(application: Application) {
 
     val motion = MotionStore(source = manualSource)
 
+    /** State of the Debug sheet and the pinned readout. */
+    val debugUi = DebugUi(application)
+
     init {
         MainScope().launch { motion.start() }
     }

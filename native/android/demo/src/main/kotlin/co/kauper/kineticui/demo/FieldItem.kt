@@ -1,6 +1,7 @@
 package co.kauper.kineticui.demo
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,18 +12,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -52,7 +52,14 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.kauper.kineticui.compose.LocalKineticMetrics
 import co.kauper.kineticui.compose.LocalMotionState
@@ -93,10 +100,15 @@ fun FieldItem(
     modifier: Modifier = Modifier,
     onImeNext: (() -> Unit)? = null,
     labelAddon: (@Composable () -> Unit)? = null,
+    savedForLater: Boolean = false,
 ) {
     val metrics = LocalKineticMetrics.current
     val kind = field.kind
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.gap / 2)) {
+    val accent = MaterialTheme.colorScheme.primary
+    Column(
+        modifier.savedForLaterBar(savedForLater, accent),
+        verticalArrangement = Arrangement.spacedBy(metrics.gap / 2),
+    ) {
         if (labelAddon != null) labelAddon()
         // Text fields and the full-form switch carry their own label.
         val ownsLabel = kind is FieldKind.Text || (kind is FieldKind.Toggle && presentation == Presentation.Full)
@@ -152,9 +164,9 @@ private fun TextInput(
         delay(SUGGEST_DELAY_MS)
         settled = text
     }
-    var hadFocus by remember { mutableStateOf(false) }
+    var hadFocus by remember(field.id) { mutableStateOf(false) }
 
-    val keyboard = if (isEmail) {
+    val keyboardOptions = if (isEmail) {
         KeyboardOptions(
             keyboardType = KeyboardType.Email,
             autoCorrectEnabled = false,
@@ -173,9 +185,10 @@ private fun TextInput(
         onValueChange = ::set,
         label = { Text(field.label) },
         singleLine = true,
+        colors = kineticTextFieldColors(),
         isError = error != null,
         supportingText = error?.let { message -> { Text(message) } },
-        keyboardOptions = keyboard,
+        keyboardOptions = keyboardOptions,
         keyboardActions = if (onImeNext != null) KeyboardActions(onNext = { onImeNext() }) else KeyboardActions.Default,
         modifier = Modifier
             .fillMaxWidth()
@@ -196,27 +209,27 @@ private fun TextInput(
     if (isEmail) {
         val completions = emailDomainCompletions(text)
         if (completions.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Buttons do not take focus on touch, so the field keeps focus and the keyboard stays open.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 completions.forEach { completion ->
-                    AssistChip(
+                    PillButton(
+                        text = "@${completion.domain}",
                         onClick = { set(completion.email) },
-                        label = { Text("@${completion.domain}") },
-                        modifier = Modifier
-                            .heightIn(min = metrics.targetMin)
-                            .semantics { contentDescription = "Complete email address with @${completion.domain}" },
+                        size = PillSize.Small,
+                        variant = PillVariant.Tonal,
+                        modifier = Modifier.semantics { contentDescription = "Complete email address with @${completion.domain}" },
                     )
                 }
             }
         }
         val suggestion: EmailCompletion? = if (settled == text) suggestEmailDomain(text) else null
         // Announced politely when it appears; it never blocks submitting.
-        Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+        Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (suggestion != null) {
                 Text("Did you mean ${suggestion.email}?")
-                FilledTonalButton(
-                    onClick = { set(suggestion.email) },
-                    modifier = Modifier.heightIn(min = metrics.targetMin),
-                ) { Text("Use ${suggestion.domain}") }
+                Row {
+                    PillButton("Use ${suggestion.domain}", onClick = { set(suggestion.email) }, variant = PillVariant.Tonal)
+                }
             }
         }
     }
@@ -244,6 +257,8 @@ private fun OptionCards(
 ) {
     val metrics = LocalKineticMetrics.current
     val colors = MaterialTheme.colorScheme
+    // Focus goes to the chosen card, or the first one when nothing is chosen yet.
+    val focusIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
     Column(
         Modifier
             .fillMaxWidth()
@@ -256,20 +271,24 @@ private fun OptionCards(
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = if (isSelected) colors.secondaryContainer else colors.surface,
+                // Unselected: the control outline (3:1). Selected: accent border and a check, never color alone.
                 border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) colors.primary else colors.outline),
             ) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier)
+                        // focusable(): clickable items are not focus targets in touch mode, but the step must be able to move focus here.
+                        .then(if (index == focusIndex) Modifier.focusRequester(focusRequester).focusable() else Modifier)
                         .selectable(selected = isSelected, onClick = { onSelect(value) }, role = Role.RadioButton)
                         .heightIn(min = metrics.targetMin)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    RadioButton(selected = isSelected, onClick = null)
-                    Spacer(Modifier.width(12.dp))
-                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                    Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    if (isSelected) {
+                        Spacer(Modifier.width(12.dp))
+                        Icon(CheckIcon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                    }
                 }
             }
         }
@@ -303,13 +322,14 @@ private fun ToggleInput(
             Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
+                .focusable()
                 .toggleable(value = checked == true, role = Role.Switch, onValueChange = { onChange(AnswerValue.Bool(it)) })
                 .heightIn(min = metrics.targetMin),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(field.label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Switch(checked = checked == true, onCheckedChange = null)
+            Switch(checked = checked == true, onCheckedChange = null, colors = kineticSwitchColors())
         }
     }
 }
@@ -349,15 +369,33 @@ private fun SliderInput(
         onValueChange = { onChange(AnswerValue.Number(it.toDouble())) },
         valueRange = kind.min.toFloat()..kind.max.toFloat(),
         steps = steps,
+        colors = kineticSliderColors(),
         interactionSource = interaction,
-        thumb = { SliderDefaults.Thumb(interactionSource = interaction, thumbSize = DpSize(thumb, thumb)) },
+        thumb = { SliderDefaults.Thumb(interactionSource = interaction, colors = kineticSliderColors(), thumbSize = DpSize(thumb, thumb)) },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = metrics.targetMin)
             .focusRequester(focusRequester)
+            .focusable()
             .semantics {
                 contentDescription = field.label
                 stateDescription = if (answered) valueLabel else "$valueLabel, not set yet"
             },
     )
+}
+
+/** "Saved for later" marker: a 3 dp accent bar in the start margin, outside the content edge, so nothing shifts. */
+private fun Modifier.savedForLaterBar(on: Boolean, color: Color): Modifier =
+    if (!on) this else drawBehind {
+        val width = 3.dp.toPx()
+        val x = if (layoutDirection == LayoutDirection.Ltr) -12.dp.toPx() else size.width + 12.dp.toPx() - width
+        drawRoundRect(color, topLeft = Offset(x, 0f), size = Size(width, size.height), cornerRadius = CornerRadius(2.dp.toPx()))
+    }
+
+/** The text half of the marker (the bar alone would be color only). */
+@Composable
+fun SavedForLaterBadge() {
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+        Text("Saved for later", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
+    }
 }
