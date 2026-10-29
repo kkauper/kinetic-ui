@@ -141,7 +141,40 @@ struct MotionStoreTests {
         store.stop()
     }
 
-    @Test func simulatedWalkIsDetectedFromRawAcceleration() async {
+    /// Deterministic: the engine sees samples at irregular, slow intervals (a busy device,
+    /// about 20 Hz with jitter). The cadence must still read 2 steps/s because the wave
+    /// follows the timestamps, not the number of samples.
+    @Test func walkSignalKeepsItsFrequencyWhenSamplesArriveLate() {
+        var config = defaultConfig()
+        config.enterMovingAfterMs = 300
+        let engine = MotionEngine(config: config, nowMs: 0)
+        var signal = WalkSignal()
+        var t = 0.0
+        var jitter = SplitMix64(seed: 7)
+        while t < 8_000 {
+            engine.pushSample(sample: signal.sample(at: t, cadence: 2))
+            t += 35 + jitter.nextCentered() * 40 + 40  // 35...75 ms, mean about 55 ms
+            engine.tick(nowMs: t)
+        }
+        let snapshot = engine.snapshot()
+        #expect(snapshot.state == .moving)
+        #expect(snapshot.cadence >= 1.8 && snapshot.cadence <= 2.2)
+    }
+
+    @Test func walkSignalPhaseIsContinuousWhenCadenceChanges() {
+        var signal = WalkSignal()
+        _ = signal.sample(at: 0, cadence: 1)
+        _ = signal.sample(at: 100, cadence: 1)
+        guard case .acceleration(_, _, _, let before) = signal.sample(at: 200, cadence: 1),
+              case .acceleration(_, _, _, let after) = signal.sample(at: 201, cadence: 3) else {
+            Issue.record("expected acceleration samples")
+            return
+        }
+        #expect(abs(after - before) < 0.5)  // a jump would be up to 6 m/s^2
+    }
+
+    /// The real source on the real clock: generous bound, because CI machines are loaded.
+    @Test func simulatedWalkSourceIsDetectedFromRawAcceleration() async {
         var config = defaultConfig()
         config.enterMovingAfterMs = 300
         config.tickIntervalMs = 50
@@ -149,12 +182,12 @@ struct MotionStoreTests {
         let store = MotionStore(source: walk, config: config)
         await store.start()
         var reachedMoving = false
-        for _ in 0..<100 where !reachedMoving {  // up to ~10 s of real time
+        for _ in 0..<300 where !reachedMoving {  // up to 30 s of real time
             try? await Task.sleep(for: .milliseconds(100))
             reachedMoving = store.snapshot.state == .moving
         }
         #expect(reachedMoving)
-        #expect(store.snapshot.cadence > 1.5 && store.snapshot.cadence < 2.5)
+        #expect(store.snapshot.cadence >= 1.5 && store.snapshot.cadence <= 2.5)
         store.stop()
     }
 

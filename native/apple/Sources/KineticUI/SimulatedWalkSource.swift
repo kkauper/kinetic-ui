@@ -30,18 +30,10 @@ public final class SimulatedWalkSource: MotionSource {
         let rate = sampleRateHz
         let state = state
         let task = Task.detached {
-            var generator = SplitMix64(seed: 1)
-            var phase = 0.0
+            var signal = WalkSignal()
             while !Task.isCancelled {
                 let cadence = state.withLock { $0.cadence }
-                phase += 2 * Double.pi * cadence / rate
-                let swing = cadence > 0 ? 3 * sin(phase) : 0
-                emit(.acceleration(
-                    t: now(),
-                    x: generator.nextCentered() * 0.3,
-                    y: generator.nextCentered() * 0.3,
-                    z: 9.81 + swing + generator.nextCentered() * 0.3
-                ))
+                emit(signal.sample(at: now(), cadence: cadence))
                 try? await Task.sleep(for: .milliseconds(1000 / rate))
             }
         }
@@ -54,6 +46,29 @@ public final class SimulatedWalkSource: MotionSource {
             return config.task
         }
         task?.cancel()
+    }
+}
+
+/// The waveform as a function of the sample timestamp, not of the loop count: when
+/// `Task.sleep` overruns on a busy device the sample rate drops but the frequency
+/// stays right (advancing a fixed step per iteration would stretch the wave and the
+/// estimator would read a lower cadence). The phase accumulates, so changing the
+/// cadence mid-walk does not jump.
+struct WalkSignal {
+    private var noise = SplitMix64(seed: 1)
+    private var phase = 0.0
+    private var lastT: Double?
+
+    mutating func sample(at t: Double, cadence: Double) -> Sample {
+        if let lastT { phase += 2 * Double.pi * cadence * (t - lastT) / 1000 }
+        lastT = t
+        let swing = cadence > 0 ? 3 * sin(phase) : 0
+        return .acceleration(
+            t: t,
+            x: noise.nextCentered() * 0.3,
+            y: noise.nextCentered() * 0.3,
+            z: 9.81 + swing + noise.nextCentered() * 0.3
+        )
     }
 }
 
