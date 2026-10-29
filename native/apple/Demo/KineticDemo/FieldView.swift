@@ -14,15 +14,37 @@ enum Presentation {
     case step
 }
 
+/// Accessibility-focus key of the control that answers `field` (nil for text, which takes keyboard focus).
+/// The stepper moves VoiceOver there on every step change.
+func controlFocusKey(for field: FieldSchema, value: AnswerValue?) -> String? {
+    switch field.kind {
+    case .text:
+        return nil
+    case .choice(let options):
+        if case .text(let selected)? = value, options.contains(where: { $0.value == selected }) {
+            return "control:\(field.id):\(selected)"
+        }
+        return options.first.map { "control:\(field.id):\($0.value)" }
+    case .toggle:
+        return "control:\(field.id):\(value == AnswerValue.bool(value: false) ? "no" : "yes")"
+    case .slider:
+        return "control:\(field.id)"
+    }
+}
+
 /// One renderer per field kind, shared by the full form and the stepper.
 /// Sizes come from `kineticMetrics`; the view never asks why the state is what it is.
+///
+/// Text steps: every text-like field (plain or email) goes through the same `TextLikeInput` at the
+/// same place in the view tree and the stepper does not key this view by field id, so SwiftUI keeps
+/// one `UITextField`: its focus, and with it the keyboard, survive from one text step to the next.
 struct FieldView: View {
     let field: FieldSchema
     let value: AnswerValue?
     let error: String?
     let presentation: Presentation
     var isDeferred = false
-    /// Accessibility focus target for validation errors (the field's id).
+    /// Accessibility focus target for validation errors (the field's id) and for controls (`controlFocusKey`).
     var focus: AccessibilityFocusState<String?>.Binding
     var onSubmit: () -> Void = {}
     let onChange: (AnswerValue?) -> Void
@@ -33,14 +55,25 @@ struct FieldView: View {
         VStack(alignment: .leading, spacing: metrics.gap) {
             if showsLabel { label }
             if let hint = field.hint {
-                Text(hint).font(.footnote).foregroundStyle(.secondary)
+                Text(hint).font(KineticFont.secondary).foregroundStyle(KColor.secondary)
             }
             control
             if let error {
                 Text(error)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+                    .font(KineticFont.secondary)
+                    .foregroundStyle(KColor.error)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityFocused(focus, equals: field.id)
+            }
+        }
+        // "Saved for later": a 3 pt accent bar in the leading margin, outside the content edge (plus the badge).
+        .overlay(alignment: .leading) {
+            if isDeferred {
+                Capsule()
+                    .fill(KColor.accent)
+                    .frame(width: 3)
+                    .offset(x: -10)
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -54,14 +87,15 @@ struct FieldView: View {
     }
 
     private var label: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(field.label).questionFont(metrics.fontQuestion)
             if isDeferred {
                 Text("Saved for later")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(.orange.opacity(0.25), in: Capsule())
+                    .font(KineticFont.captionStrong)
+                    .foregroundStyle(KColor.amber)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(KColor.amber.opacity(0.16)))
             }
         }
         .accessibilityElement(children: .combine)
@@ -72,20 +106,15 @@ struct FieldView: View {
     private var control: some View {
         switch field.kind {
         case .text(let format, let autocomplete):
-            if format == .email {
-                EmailInput(field: field, value: value, error: error, presentation: presentation,
-                           onSubmit: onSubmit, onChange: onChange)
-            } else {
-                PlainTextInput(field: field, value: value, autocomplete: autocomplete, error: error,
-                               presentation: presentation, onSubmit: onSubmit, onChange: onChange)
-            }
+            TextLikeInput(field: field, value: value, format: format, autocomplete: autocomplete, error: error,
+                          presentation: presentation, onSubmit: onSubmit, onChange: onChange)
         case .choice(let options):
-            ChoiceCards(field: field, options: options, value: value, presentation: presentation, onChange: onChange)
+            ChoiceCards(field: field, options: options, value: value, presentation: presentation, focus: focus, onChange: onChange)
         case .toggle:
-            ToggleControl(field: field, value: value, presentation: presentation, onChange: onChange)
+            ToggleControl(field: field, value: value, presentation: presentation, focus: focus, onChange: onChange)
         case .slider(let min, let max, let step, let valueLabels, let defaultValue):
             SliderControl(field: field, range: min...max, step: step, valueLabels: valueLabels,
-                          defaultValue: defaultValue, value: value, presentation: presentation, onChange: onChange)
+                          defaultValue: defaultValue, value: value, presentation: presentation, focus: focus, onChange: onChange)
         }
     }
 }
@@ -107,39 +136,16 @@ private func contentType(for autocomplete: String?) -> UITextContentType? {
     }
 }
 
-private struct PlainTextInput: View {
+/// The text input for every text-like question (plain text and email). One view, one `TextField`:
+/// prompt, keyboard type, content type and capitalization change in place from field to field.
+/// In the stepper it owns the keyboard focus: it takes focus when it appears and again on each
+/// step change (a no-op while it already has it, which is what keeps the keyboard up), and Return
+/// is Next. Buttons do not take focus in SwiftUI, so tapping Back/Next/Later leaves it alone.
+private struct TextLikeInput: View {
     let field: FieldSchema
     let value: AnswerValue?
+    let format: TextFormat?
     let autocomplete: String?
-    let error: String?
-    let presentation: Presentation
-    let onSubmit: () -> Void
-    let onChange: (AnswerValue?) -> Void
-    @Environment(\.kineticMetrics) private var metrics
-
-    @State private var text = ""
-
-    var body: some View {
-        TextField(field.label, text: $text)
-            .textFieldStyle(.roundedBorder)
-            .textContentType(contentType(for: autocomplete))
-            .submitLabel(presentation == .step ? .next : .done)
-            .onSubmit(onSubmit)
-            .frame(minHeight: metrics.targetMin)
-            .accessibilityHint(error ?? "")
-            .onChange(of: value, initial: true) { _, newValue in
-                if text != answerText(newValue) { text = answerText(newValue) }
-            }
-            .onChange(of: text) { _, newText in
-                if newText != answerText(value) { onChange(newText.isEmpty ? nil : .text(value: newText)) }
-            }
-    }
-}
-
-/// Email input with the right keyboard, one-tap domain chips and a typo suggestion.
-private struct EmailInput: View {
-    let field: FieldSchema
-    let value: AnswerValue?
     let error: String?
     let presentation: Presentation
     let onSubmit: () -> Void
@@ -153,27 +159,29 @@ private struct EmailInput: View {
 
     private static let suggestDelay: Duration = .milliseconds(500)
 
+    private var isEmail: Bool { format == .email }
+
     var body: some View {
-        let suggestion = settledText == text ? suggestEmailDomain(value: text) : nil
-        let completions = emailDomainCompletions(value: text)
+        let suggestion = isEmail && settledText == text ? suggestEmailDomain(value: text) : nil
+        let completions = isEmail ? emailDomainCompletions(value: text) : []
 
         VStack(alignment: .leading, spacing: metrics.gap) {
             TextField(field.label, text: $text)
-                .textFieldStyle(.roundedBorder)
-                .keyboardType(.emailAddress)
-                .textContentType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+                .keyboardType(isEmail ? .emailAddress : .default)
+                .textContentType(contentType(for: autocomplete))
+                .textInputAutocapitalization(isEmail ? .never : .words)
+                .autocorrectionDisabled(isEmail)
                 .submitLabel(presentation == .step ? .next : .done)
                 .focused($isFocused)
                 .onSubmit {
-                    normalize()
+                    if isEmail { normalize() }
                     onSubmit()
                 }
                 .onChange(of: isFocused) { _, focused in
-                    if !focused { normalize() }
+                    if !focused && isEmail { normalize() }
                 }
-                .frame(minHeight: metrics.targetMin)
+                .kineticFieldChrome(minHeight: metrics.targetMin, focused: isFocused, invalid: error != nil)
+                .accessibilityLabel(field.label)
                 .accessibilityHint(error ?? "")
 
             if !completions.isEmpty {
@@ -188,6 +196,18 @@ private struct EmailInput: View {
         }
         .onChange(of: text) { _, newText in
             if newText != answerText(value) { set(newText) }
+        }
+        .onChange(of: field.id) {
+            // Same input, next question: show its answer and keep (or take back) the focus.
+            if text != answerText(value) { text = answerText(value) }
+            settledText = text
+            if presentation == .step { isFocused = true }
+        }
+        .task {
+            // First appearance in the stepper (coming from a choice step): open the keyboard.
+            guard presentation == .step else { return }
+            await Task.yield()
+            isFocused = true
         }
         .task(id: text) {
             try? await Task.sleep(for: Self.suggestDelay)
@@ -210,11 +230,10 @@ private struct EmailInput: View {
 
     private func chips(_ completions: [EmailCompletion]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: metrics.gap / 2) {
+            HStack(spacing: 8) {
                 ForEach(completions, id: \.domain) { completion in
                     Button("@\(completion.domain)") { text = completion.email }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: metrics.targetMin)
+                        .buttonStyle(.pill(.soft, size: .small))
                         .accessibilityLabel("Complete with \(completion.domain)")
                 }
             }
@@ -226,9 +245,10 @@ private struct EmailInput: View {
     private func suggestionRow(_ suggestion: EmailCompletion) -> some View {
         HStack {
             Text("Did you mean \(suggestion.email)?")
+                .font(KineticFont.secondary)
+                .foregroundStyle(KColor.secondary)
             Button("Use \(suggestion.domain)") { text = suggestion.email }
-                .buttonStyle(.bordered)
-                .frame(minHeight: metrics.targetMin)
+                .buttonStyle(.pill(.soft, size: .small))
         }
         .accessibilityElement(children: .contain)
     }
@@ -236,36 +256,43 @@ private struct EmailInput: View {
 
 // MARK: - Choice and toggle
 
-/// A large tappable card; selection is announced with the `isSelected` trait.
+/// A large tappable card; selection is shown by an accent border and a check mark (not color alone)
+/// and announced with the `isSelected` trait.
 private struct OptionCard: View {
     let title: String
     let isSelected: Bool
+    let focus: AccessibilityFocusState<String?>.Binding
+    let focusKey: String
     let action: () -> Void
     @Environment(\.kineticMetrics) private var metrics
 
     var body: some View {
         Button(action: action) {
             HStack {
-                Text(title).multilineTextAlignment(.leading)
+                Text(title)
+                    .font(KineticFont.bodyMedium)
+                    .foregroundStyle(KColor.text)
+                    .multilineTextAlignment(.leading)
                 Spacer(minLength: metrics.gap)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .foregroundStyle(isSelected ? KColor.accent : KColor.border)
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, metrics.gap)
             .frame(maxWidth: .infinity, minHeight: metrics.targetMin, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? KColor.accent.opacity(0.15) : KColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.accentColor : .clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isSelected ? KColor.accent : KColor.border, lineWidth: isSelected ? 2 : 1)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityFocused(focus, equals: focusKey)
     }
 }
 
@@ -274,6 +301,7 @@ private struct ChoiceCards: View {
     let options: [ChoiceOption]
     let value: AnswerValue?
     let presentation: Presentation
+    let focus: AccessibilityFocusState<String?>.Binding
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
 
@@ -284,7 +312,8 @@ private struct ChoiceCards: View {
             : [GridItem(.adaptive(minimum: 150), spacing: metrics.gap)]
         LazyVGrid(columns: columns, spacing: metrics.gap) {
             ForEach(options, id: \.value) { option in
-                OptionCard(title: option.label, isSelected: option.value == selected) {
+                OptionCard(title: option.label, isSelected: option.value == selected,
+                           focus: focus, focusKey: "control:\(field.id):\(option.value)") {
                     onChange(.text(value: option.value))
                 }
             }
@@ -294,12 +323,13 @@ private struct ChoiceCards: View {
     }
 }
 
-/// Full form: a `Toggle`. Stepper: Yes/No cards, because a small switch that
+/// Full form: a switch. Stepper: Yes/No cards, because a small switch that
 /// auto-advances on tap is ambiguous. The stored value is a boolean either way.
 private struct ToggleControl: View {
     let field: FieldSchema
     let value: AnswerValue?
     let presentation: Presentation
+    let focus: AccessibilityFocusState<String?>.Binding
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
     @State private var isOn = false
@@ -307,13 +337,17 @@ private struct ToggleControl: View {
     var body: some View {
         if presentation == .step {
             HStack(spacing: metrics.gap) {
-                OptionCard(title: "Yes", isSelected: value == AnswerValue.bool(value: true)) { onChange(.bool(value: true)) }
-                OptionCard(title: "No", isSelected: value == AnswerValue.bool(value: false)) { onChange(.bool(value: false)) }
+                OptionCard(title: "Yes", isSelected: value == AnswerValue.bool(value: true),
+                           focus: focus, focusKey: "control:\(field.id):yes") { onChange(.bool(value: true)) }
+                OptionCard(title: "No", isSelected: value == AnswerValue.bool(value: false),
+                           focus: focus, focusKey: "control:\(field.id):no") { onChange(.bool(value: false)) }
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel(field.label)
         } else {
             Toggle(field.label, isOn: $isOn)
+                .toggleStyle(KineticToggleStyle())
+                .font(KineticFont.bodyMedium)
                 .onChange(of: value, initial: true) { _, newValue in
                     let on = newValue == AnswerValue.bool(value: true)
                     if isOn != on { isOn = on }
@@ -336,6 +370,7 @@ private struct SliderControl: View {
     let defaultValue: Double?
     let value: AnswerValue?
     let presentation: Presentation
+    let focus: AccessibilityFocusState<String?>.Binding
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
     @State private var position = 0.0
@@ -359,10 +394,15 @@ private struct SliderControl: View {
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.gap) {
             Text(valueLabel + (answered ? "" : presentation == .step ? " — press Next to confirm" : " (not set yet)"))
-                .font(.title3)
+                .font(KineticFont.custom(20, .medium, relativeTo: .title3))
+                .foregroundStyle(KColor.text)
                 .accessibilityHidden(true)  // the slider itself speaks the value
-            Slider(value: $position, in: range, step: step)
-            .frame(minHeight: metrics.targetMin)
+            KineticSlider(
+                value: $position, range: range, step: step,
+                trackHeight: presentation == .step ? KineticTokens.Moving.sliderTrack : 8,
+                thumbSize: presentation == .step ? KineticTokens.Moving.sliderThumb : 24,
+                minHeight: metrics.targetMin
+            )
             .onChange(of: shown, initial: true) { _, newShown in
                 if position != newShown { position = newShown }
             }
@@ -372,6 +412,7 @@ private struct SliderControl: View {
             }
             .accessibilityLabel(field.label)
             .accessibilityValue(answered ? valueLabel : "\(valueLabel), not set yet")
+            .accessibilityFocused(focus, equals: "control:\(field.id)")
         }
     }
 }

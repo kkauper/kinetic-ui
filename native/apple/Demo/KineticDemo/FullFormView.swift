@@ -1,7 +1,7 @@
 import KineticUI
 import SwiftUI
 
-/// The complete form: every field, in schema order.
+/// The complete form: every field, in schema order. Top-to-bottom flow, editable fields.
 struct FullFormView: View {
     @Environment(FormStore.self) private var form
     @Environment(\.kineticMetrics) private var metrics
@@ -13,7 +13,8 @@ struct FullFormView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: metrics.fieldGap) {
                 Text(form.title)
-                    .font(.title2.bold())
+                    .font(KineticFont.title)
+                    .foregroundStyle(KColor.text)
                     .accessibilityAddTraits(.isHeader)
 
                 ForEach(form.fields, id: \.id) { field in
@@ -33,28 +34,36 @@ struct FullFormView: View {
                 }
 
                 Button("Create account", action: submit)
-                    .buttonStyle(.borderedProminent)
-                    .frame(minHeight: metrics.targetMin)
+                    .buttonStyle(.pill(.prominent, size: .large, fullWidth: true))
 
                 if submitted { success }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
         }
         .scrollDismissesKeyboard(.interactively)
+        // The status pill lives in the layout (an inset), so it never covers a field.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            ReadoutPill()
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        }
     }
 
     private var success: some View {
         VStack(alignment: .leading, spacing: metrics.gap) {
             Text("Account created (demo — nothing was sent)")
+                .font(KineticFont.bodyMedium)
+                .foregroundStyle(KColor.success)
                 .padding(metrics.gap)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.green.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                .background(RoundedRectangle(cornerRadius: 8).fill(KColor.success.opacity(0.14)))
             Button("Start over") {
                 form.reset()
                 submitted = false
             }
-            .buttonStyle(.bordered)
-            .frame(minHeight: metrics.targetMin)
+            .buttonStyle(.pill(.soft))
         }
     }
 

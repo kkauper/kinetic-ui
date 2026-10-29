@@ -1,18 +1,25 @@
 import KineticUI
 import SwiftUI
 
-/// One question at a time, built for thumbs: bottom bar, big targets, no surprise keyboards.
+/// One question at a time, built for thumbs. Everything sits in the lower part of the screen
+/// (spacer on top, then progress, question, field), and the Back / Later / Next bar is a bottom
+/// safe-area inset, which SwiftUI keeps right above the keyboard. The input is therefore always
+/// next to the bar, and the keyboard moves nothing.
+///
+/// Focus: on every step change the step's control takes focus. Text questions share one
+/// `TextField` (see `FieldView`) that holds the keyboard focus, so the keyboard stays up across
+/// consecutive text steps; Buttons do not take focus in SwiftUI, so Next does not dismiss it.
+/// Choice, Yes/No and slider steps move VoiceOver focus to the control; the summary moves it to its heading.
 @MainActor
 struct StepperView: View {
     @Environment(FormStore.self) private var form
-    @Environment(MotionStore.self) private var motion
     @Environment(\.kineticMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Accessibility focus lands on the question heading on every step change, not on an input.
-    @AccessibilityFocusState private var headingFocused: Bool
-    @AccessibilityFocusState private var errorFocus: String?
+    /// VoiceOver focus: "heading" (summary), a field id (its error) or a `controlFocusKey`.
+    @AccessibilityFocusState private var a11yFocus: String?
     @State private var advanceTask: Task<Void, Never>?
+    @State private var created = false
 
     /// Delay so the user sees their selection before an unambiguous tap advances.
     private static let autoAdvanceDelay: Duration = .milliseconds(300)
@@ -23,30 +30,19 @@ struct StepperView: View {
     private var field: FieldSchema? { form.fields.indices.contains(step) ? form.fields[step] : nil }
     private var isDone: Bool { field == nil }
     private var pending: [String] { form.pendingDeferred }
+    private var answeredCount: Int { form.fields.filter { form.isAnswered($0.id) }.count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
+        GeometryReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: metrics.fieldGap) {
-                    heading
-                    if let field {
-                        FieldView(
-                            field: field,
-                            value: form.state.answers[field.id],
-                            error: form.state.errors[field.id],
-                            presentation: .step,
-                            focus: $errorFocus,
-                            onSubmit: next,
-                            onChange: { change($0, in: field) }
-                        )
-                        .id(field.id)
-                    } else {
-                        doneContent
-                    }
-                }
-                .padding()
+                content
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                    // At least the visible height, bottom-aligned: short content sits at the bottom
+                    // (one thumb), long content (the summary) scrolls.
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .bottomLeading)
             }
+            .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { thumbBar }
@@ -56,89 +52,130 @@ struct StepperView: View {
         .onAppear { form.jumpToFirstUnanswered() }
         .onChange(of: step, initial: true) {
             cancelAdvance()
-            focusHeading()
+            enterStep()
         }
+        .onChange(of: created) { enterStep() }
     }
 
     // MARK: Pieces
 
-    private var header: some View {
-        HStack {
-            Text(progress).foregroundStyle(.secondary)
-                .accessibilityHidden(true)  // the heading's label carries it
-            Spacer()
-            if !pending.isEmpty {
-                Button(laterCount) { form.goTo(count) }
-                    .buttonStyle(.bordered)
-                    .tint(.orange)
-                    .frame(minHeight: metrics.targetMin)
+    private var content: some View {
+        VStack(alignment: .leading, spacing: metrics.gap) {
+            statusRow
+            heading
+            if let field {
+                // No `.id(field.id)`: the same view for every question keeps the text field (and its focus).
+                FieldView(
+                    field: field,
+                    value: form.state.answers[field.id],
+                    error: form.state.errors[field.id],
+                    presentation: .step,
+                    focus: $a11yFocus,
+                    onSubmit: next,
+                    onChange: { change($0, in: field) }
+                )
+            } else if created {
+                Button("Start over") {
+                    form.reset()
+                    created = false
+                }
+                .buttonStyle(.pill(.soft))
+            } else {
+                SummaryView { form.goTo($0) }
             }
         }
-        .padding(.horizontal)
     }
 
-    private var heading: some View {
-        Text(field?.label ?? "That's everything for now")
-            .questionFont(metrics.fontQuestion)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityAddTraits(.isHeader)
-            // Speaks the position first: "Question 2 of 5. First name".
-            .accessibilityLabel("\(progress). \(field?.label ?? "That's everything for now")")
-            .accessibilityFocused($headingFocused)
-            .id("heading-\(step)")
+    /// Progress, the "for later" chip and the debug status pill, in the bottom group so they add no height above it.
+    private var statusRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                progressText
+                laterChip
+                Spacer(minLength: 0)
+                ReadoutPill()
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    progressText
+                    laterChip
+                }
+                ReadoutPill()
+            }
+        }
+    }
+
+    private var progressText: some View {
+        Text(progress)
+            .font(KineticFont.secondary)
+            .foregroundStyle(KColor.secondary)
     }
 
     @ViewBuilder
-    private var doneContent: some View {
-        if !pending.isEmpty {
-            VStack(alignment: .leading, spacing: metrics.gap) {
-                Text(laterCount).font(.headline).accessibilityAddTraits(.isHeader)
-                ForEach(pending, id: \.self) { id in
-                    if let index = form.fields.firstIndex(where: { $0.id == id }) {
-                        Button(form.fields[index].label) { form.goTo(index) }
-                            .buttonStyle(.bordered)
-                            .frame(minHeight: metrics.targetMin)
-                    }
-                }
-            }
+    private var laterChip: some View {
+        if !pending.isEmpty && !isDone {
+            Button(laterCount) { form.goTo(count) }
+                .buttonStyle(.pill(.caution, size: .small))
         }
-        Button("Review full form") { motion.showFull() }
-            .buttonStyle(.bordered)
-            .frame(minHeight: metrics.targetMin)
+    }
+
+    private var heading: some View {
+        Text(headingText)
+            .questionFont(metrics.fontQuestion)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityFocused($a11yFocus, equals: "heading")
     }
 
     private var thumbBar: some View {
-        HStack(spacing: metrics.gap) {
-            Button("Back") {
-                cancelAdvance()
-                form.back()
-            }
-            .buttonStyle(.bordered)
-            .tint(.gray)
-            .disabled(step == 0)
-            .frame(minWidth: metrics.targetMin, minHeight: metrics.targetMin)
-
-            Spacer()
-
-            if !isDone {
-                if canDefer {
-                    Button("Later", action: deferCurrent)
-                        .buttonStyle(.bordered)
-                        .frame(minWidth: metrics.targetMin, minHeight: metrics.targetMin)
+        VStack(spacing: 8) {
+            if isDone {
+                if !created {
+                    HStack {
+                        Button("Back") { form.back() }
+                            .buttonStyle(.pill(.soft, size: .small))
+                        Spacer()
+                    }
+                    Button("Create account", action: createAccount)
+                        .buttonStyle(.pill(.prominent, size: .large, fullWidth: true))
                 }
-                Button("Next", action: next)
-                    .buttonStyle(.borderedProminent)
-                    .frame(minWidth: metrics.targetMin, minHeight: metrics.targetMin)
+            } else {
+                HStack(spacing: 12) {
+                    Button("Back") {
+                        cancelAdvance()
+                        form.back()
+                    }
+                    .buttonStyle(.pill(.soft))
+                    .disabled(step == 0)
+
+                    Spacer(minLength: 0)
+
+                    if canDefer {
+                        Button("Later", action: deferCurrent)
+                            .buttonStyle(.pill(.outline))
+                    }
+                    Button("Next", action: next)
+                        .buttonStyle(.pill(.prominent))
+                }
             }
         }
-        .padding(metrics.thumbZonePad)
-        .background(.bar)
+        .padding(.horizontal, 16)
+        .padding(.top, isDone && created ? 0 : 8)
+        .padding(.bottom, isDone && created ? 0 : metrics.thumbZonePad)
+        .frame(maxWidth: .infinity)
+        .background(KColor.background)
     }
 
     // MARK: Text
 
+    private var headingText: String {
+        if let field { return field.label }
+        return created ? "Account created (demo — nothing was sent)" : "Review your answers"
+    }
+
     private var progress: String {
-        isDone ? "All questions visited" : "Question \(step + 1) of \(count)"
+        if isDone { return created ? "Account created" : "Review: \(answeredCount) of \(count) answered" }
+        return "Question \(step + 1) of \(count)"
     }
 
     private var laterCount: String {
@@ -162,13 +199,25 @@ struct StepperView: View {
         if form.next() {
             form.jumpToFirstUnanswered()
         } else if let field {
-            focusError(field.id)
+            focusLater(field.id)
         }
     }
 
     private func deferCurrent() {
         cancelAdvance()
         if form.defer() { form.jumpToFirstUnanswered() }
+    }
+
+    private func createAccount() {
+        form.normalizeEmailAnswers()
+        if form.validateAll() {
+            created = true
+            return
+        }
+        // Back to the first invalid question; entering the step focuses its field.
+        if let index = form.fields.firstIndex(where: { form.state.errors[$0.id] != nil }) {
+            form.goTo(index)
+        }
     }
 
     private func change(_ value: AnswerValue?, in field: FieldSchema) {
@@ -191,18 +240,36 @@ struct StepperView: View {
         advanceTask = nil
     }
 
-    private func focusHeading() {
-        headingFocused = false
+    /// New step (or the account was created): announce it and move VoiceOver focus to the control.
+    /// Text questions need nothing here: the shared text field takes keyboard focus itself.
+    private func enterStep() {
+        let announcement: String
+        let target: String?
+        if let field {
+            announcement = "Question \(step + 1) of \(count)"
+            if form.state.errors[field.id] != nil {
+                target = field.id
+            } else {
+                target = controlFocusKey(for: field, value: form.state.answers[field.id])
+            }
+        } else {
+            announcement = created ? "Account created" : "Review: \(answeredCount) of \(count) answered"
+            target = "heading"
+        }
+        a11yFocus = nil
         Task { @MainActor in
             await Task.yield()
-            headingFocused = true
+            a11yFocus = target
+            // After the focus change, so the announcement is not cut off by the new element's label.
+            try? await Task.sleep(for: .milliseconds(600))
+            AccessibilityNotification.Announcement(announcement).post()
         }
     }
 
-    private func focusError(_ id: String) {
+    private func focusLater(_ id: String) {
         Task { @MainActor in
             await Task.yield()
-            errorFocus = id
+            a11yFocus = id
         }
     }
 
@@ -222,7 +289,7 @@ struct StepperView: View {
     }
 
     private var swipeAllowed: Bool {
-        guard let field else { return true }
+        guard let field else { return !created }
         switch field.kind {
         case .choice, .toggle: return true
         case .text, .slider: return false

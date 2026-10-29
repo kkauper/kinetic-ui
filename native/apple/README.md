@@ -18,7 +18,7 @@ Views never see a motion source. They read `motionState` and `kineticMetrics` fr
 - Rust via rustup. The build script adds the targets itself, or by hand:
   `rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios aarch64-apple-darwin x86_64-apple-darwin`
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) for the demo project: `brew install xcodegen`.
-- A **real iPhone** for activity recognition. The Simulator has no motion coprocessor; use the manual switch or "Simulated steps" there.
+- A **real iPhone** for activity recognition. The Simulator has no motion coprocessor; use "Simulate walking" or the debug sheet's "Use simulator" there.
 
 ## Build and run
 
@@ -52,11 +52,19 @@ The engine takes three kinds of `Sample`, all stamped with milliseconds on one c
 
 ## Permissions
 
-Motion data needs `NSMotionUsageDescription` in Info.plist (the demo's `project.yml` sets it). The prompt appears the first time `ActivitySource` starts; the source waits for the answer, so a refusal becomes an error message instead of silence. Denied or restricted access (Settings > Privacy & Security > Motion & Fitness, Screen Time) is reported with a user-facing message and the demo offers "Use accelerometer". `CMMotionManager` (accelerometer source) needs no permission.
+Motion data needs `NSMotionUsageDescription` in Info.plist (the demo's `project.yml` sets it). The prompt appears the first time `ActivitySource` starts; the source waits for the answer, so a refusal becomes an error message instead of silence. Denied or restricted access (Settings > Privacy & Security > Motion & Fitness, Screen Time) is shown as a notification card (same wording as the web demo) that offers "Use Simulate walking instead"; the debug sheet still has "Use accelerometer". `CMMotionManager` (accelerometer source) needs no permission.
 
 ## Demo notes
 
+Behaviour matches the web demo (see `DECISIONS.md`, UI and accessibility sections):
+
+- **Summary, not "Review full form".** After the last question the stepper shows "Review your answers" (`SummaryView`): "Questions for later" with "Answer now", then every question with its formatted answer ("Not answered" muted) and a "Change" pill (accessibility label "Change: <question>") that opens that one question; Next returns to the summary. A full-width large "Create account" pill sits in the bottom bar with a small "Back" pill above it. Create account normalizes the email and validates everything; the first invalid question opens with its field focused. VoiceOver hears "Review: n of N answered". The still-mode full form keeps editable fields and the same large pill.
+- **Focus and keyboard.** Every text-like question goes through one `TextField` with a stable identity (the stepper never keys it by field id); its prompt, keyboard type, content type and capitalization change in place. It owns a `@FocusState` that is set when it appears and on each step change, and buttons do not take focus in SwiftUI, so Back/Next/Later leave the keyboard open from the email step to the name step. Return is Next (`.submitLabel(.next)` + `.onSubmit`). Choice, Yes/No and slider steps move VoiceOver focus to the control (`@AccessibilityFocusState`), the summary to its heading. This can only be fully verified on a device.
+- **One thumb.** The stepper content is bottom-anchored (a `GeometryReader` + `ScrollView` whose content is at least as tall as the screen and aligned to the bottom, so short content sits low and the summary scrolls). Progress, the "n for later" chip and the debug status pill form one row above the question; Back / Later / Next are a bottom `safeAreaInset`, which SwiftUI keeps above the keyboard. The full form flows top to bottom.
+- **Look.** Dark only (`preferredColorScheme(.dark)`), Radix slate/blue values in `Theme.swift`: background #111113, surface #212225, text #edeef0 / #b0b4ba, accent #0090ff with dark text #111113 on accent buttons (5.78:1; white would be 3.26:1) and #696e77 boundaries (3.68:1) on text fields, unselected cards, the switch (off), the slider track and soft/outline buttons. All buttons are capsules (`PillButtonStyle`: small / regular / large, prominent / soft / outline / caution); inputs and cards use an 8 pt radius. A selected card has an accent border and a check mark. The switch and slider are drawn by hand to show their boundary; the slider is announced as the system slider (`accessibilityRepresentation`).
+- **Demo controls** are pill tags (Simulate walking, Walking mode, Debug). Debug opens a bottom sheet (medium and large detents) with the live readout, "Keep readout on screen", simulated steps, the walking band and the resets; the pinned readout is one opaque status pill in the layout that opens the same sheet. Source errors are notification cards.
+- **Font.** Hanken Grotesk (SIL OFL 1.1, variable `HankenGrotesk[wght].ttf` from https://github.com/google/fonts/tree/main/ofl/hankengrotesk, shared source in `packages/spec/brand/fonts/`) is copied to `Demo/KineticDemo/Fonts/` and registered through `UIAppFonts`; nothing is downloaded at runtime. `KineticFont` uses `Font.custom(_, size:, relativeTo:)` plus `.weight`, so Dynamic Type still scales it. Monospace stays the system face. Licence text: `Demo/KineticDemo/Fonts/OFL.txt`.
 - Sizes come from `KineticMetrics` (generated tokens). The question font uses the token as a floor and scales with Dynamic Type (`@ScaledMetric`). Animations are off when Reduce Motion is on.
-- The stepper moves VoiceOver focus to the question heading on every step; the heading's label starts with "Question n of N". Validation errors take accessibility focus on submit / Next.
-- Known limit: the native `Slider` thumb size is not adjustable, so the moving state enlarges the hit area (`minHeight`) rather than the thumb.
+- Validation errors take accessibility focus on submit / Next. The step announces "Question n of N".
+- No `Binding(get:set:)` anywhere in the demo: Xcode 26.6 / Swift 6.3 crashes in IRGen on it for the x86_64 simulator slice. Controls use `@State` mirrors with `onChange` in both directions.
 - The generated `Info.plist` under `Demo/KineticDemo/` is written by XcodeGen.

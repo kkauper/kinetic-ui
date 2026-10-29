@@ -32,6 +32,9 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # Hanken Grotesk (OFL-1.1), bundled from KineticDemo/Fonts; never fetched at runtime.
+        UIAppFonts:
+          - HankenGrotesk.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.kauper.kineticui.demo
