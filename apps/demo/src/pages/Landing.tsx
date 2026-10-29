@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@radix-ui/themes';
-import { LogoMark } from '../layout/icons';
 import { REPO_URL } from '../layout/Header';
 import { usePageFocus } from '../route/usePageFocus';
 
@@ -115,9 +114,6 @@ export function Landing() {
       </ul>
 
       <section className="k-hero">
-        <div className="k-hero__tile">
-          <LogoMark size={36} />
-        </div>
         <h1 ref={h1} tabIndex={-1} className="k-hero__title">
           Kinetic UI
         </h1>
