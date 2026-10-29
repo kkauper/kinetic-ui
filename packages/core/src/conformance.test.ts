@@ -7,6 +7,7 @@ import formFixture from '@kinetic-ui/spec/fixtures/form.json';
 import machineFixture from '@kinetic-ui/spec/fixtures/motion-machine.json';
 import storeFixture from '@kinetic-ui/spec/fixtures/motion-store.json';
 import tracesFixture from '@kinetic-ui/spec/fixtures/cadence-traces.json';
+import recordedFixture from '@kinetic-ui/spec/fixtures/cadence-recorded.json';
 import {
   createCadenceEstimator,
   createFormModel,
@@ -75,12 +76,16 @@ describe('motion-classify.json', () => {
   }
 });
 
-describe('cadence-traces.json', () => {
+// Synthetic traces (generated) and traces recorded on real phones (committed as recorded).
+describe.each([
+  ['cadence-traces.json', tracesFixture],
+  ['cadence-recorded.json', recordedFixture],
+])('%s', (_file, fixture) => {
   interface Trace {
     samples: [number, number, number, number][];
     expect: { t: number; cadence: number; tolerance: number }[];
   }
-  for (const c of cases<Named & Trace>(tracesFixture)) {
+  for (const c of cases<Named & Trace>(fixture)) {
     it(c.name, () => {
       const estimator = createCadenceEstimator(DEFAULT_MOTION_CONFIG);
       const pending = [...c.expect].sort((a, b) => a.t - b.t);

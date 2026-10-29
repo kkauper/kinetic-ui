@@ -16,7 +16,37 @@ const ENVELOPE_RATIO: f64 = 0.8;
 /// Real walking is periodic. When the coefficient of variation (stdev / mean) of the step
 /// intervals in the window is above this, the "steps" are hand jitter or noise and the cadence is 0.
 /// Becomes a config field with the next FFI change.
-const MAX_INTERVAL_CV: f64 = 0.3;
+const MAX_INTERVAL_CV: f64 = 0.25;
+
+/// Missed-step folding. A dropped run of samples (iOS lost 470 ms once in a real trace) or a soft
+/// step leaves one interval at about 2 (or 3) times the usual one, which on its own would fail the
+/// regularity check. An interval within `FOLD_TOLERANCE` of k times the median (k = 2 or 3) is
+/// counted as k intervals of length interval / k. Becomes a config field with the next FFI change.
+const FOLD_TOLERANCE: f64 = 0.25;
+
+/// Splits intervals that are about 2 or 3 times the median into that many equal ones (see `FOLD_TOLERANCE`).
+fn fold_missed_steps(intervals: &[f64]) -> Vec<f64> {
+    if intervals.is_empty() {
+        return Vec::new();
+    }
+    let typical = median(intervals);
+    if typical <= 0.0 {
+        return intervals.to_vec();
+    }
+    let mut folded = Vec::with_capacity(intervals.len());
+    for &interval in intervals {
+        // `round` differs from JS `Math.round` only for negative halves; the ratio is > 0.
+        let k = (interval / typical).round();
+        if (k == 2.0 || k == 3.0) && (interval - k * typical).abs() <= FOLD_TOLERANCE * k * typical {
+            for _ in 0..k as usize {
+                folded.push(interval / k);
+            }
+        } else {
+            folded.push(interval);
+        }
+    }
+    folded
+}
 
 /// Smoothing coefficient of an exponential average with time constant `tau` over a step of `dt` ms.
 fn alpha_for(dt: f64, tau: f64) -> f64 {
@@ -63,7 +93,7 @@ fn interval_cv(intervals: &[f64]) -> f64 {
 /// Cadence is 1000 / the median interval between steps in the recent window.
 /// It is 0 when there are too few steps, when the last step is overdue (the
 /// rhythm stopped), or when the intervals are irregular (coefficient of
-/// variation above `MAX_INTERVAL_CV`): a lower threshold lets jitter produce
+/// variation above `MAX_INTERVAL_CV`, after missed-step folding): a lower threshold lets jitter produce
 /// steps, but only walking is periodic.
 ///
 /// The web core also has a debug-only `diagnostics()`; it is deliberately not
@@ -138,7 +168,8 @@ impl CadenceEstimator {
         if self.steps.len() < config.min_steps_for_cadence as usize {
             return 0.0;
         }
-        let intervals: Vec<f64> = self.steps.windows(2).map(|w| w[1] - w[0]).collect();
+        let raw: Vec<f64> = self.steps.windows(2).map(|w| w[1] - w[0]).collect();
+        let intervals = fold_missed_steps(&raw);
         if interval_cv(&intervals) > MAX_INTERVAL_CV {
             return 0.0;
         }
@@ -213,8 +244,8 @@ mod tests {
     fn irregular_steps_report_no_cadence() {
         let config = MotionConfig::default();
         let mut e = CadenceEstimator::new();
-        // Bumps 0.5, 0.9, 0.3, 1.3, 0.4 s apart: enough steps, but not periodic.
-        let bumps = [500.0, 1400.0, 1700.0, 3000.0, 3400.0, 3900.0];
+        // Bumps 0.9, 0.3, 1.2, 0.3, 0.9 s apart: enough steps, but not periodic.
+        let bumps = [500.0, 1400.0, 1700.0, 2900.0, 3200.0, 4100.0];
         let mut t = 0.0;
         while t <= 4500.0 {
             let z = 9.81
@@ -226,7 +257,7 @@ mod tests {
             t += 20.0;
         }
         assert!(e.steps.len() >= config.min_steps_for_cadence as usize);
-        assert!(interval_cv(&[500.0, 900.0, 300.0, 1300.0, 400.0]) > MAX_INTERVAL_CV);
+        assert!(interval_cv(&fold_missed_steps(&[900.0, 300.0, 1200.0, 300.0, 900.0])) > MAX_INTERVAL_CV);
         assert_eq!(e.cadence(4500.0, &config), 0.0);
     }
 
@@ -234,5 +265,14 @@ mod tests {
     fn interval_cv_of_equal_intervals_is_zero() {
         assert_eq!(interval_cv(&[500.0, 500.0, 500.0]), 0.0);
         assert_eq!(interval_cv(&[500.0]), 0.0);
+    }
+
+    #[test]
+    fn a_missed_step_is_folded_into_two_intervals() {
+        let folded = fold_missed_steps(&[550.0, 560.0, 1110.0, 545.0, 555.0]);
+        assert_eq!(folded.len(), 6);
+        assert!(interval_cv(&folded) < 0.05);
+        // 1.4 times the median is too far from 2 times: left alone.
+        assert_eq!(fold_missed_steps(&[500.0, 500.0, 700.0, 500.0]).len(), 4);
     }
 }

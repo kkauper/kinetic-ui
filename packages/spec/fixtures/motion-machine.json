@@ -1,9 +1,21 @@
 {
-  "$comment": "Pure hysteresis reducer. Start from initialMachine(0): state still, enteredAt 0, no pending. Apply each step in order (stepMachine({now: t, walking})). When a step has expect, compare state, pending, and enteredAt / pendingSince if present. config overrides the defaults (enterMovingAfterMs 5000, exitMovingAfterMs 10000). Times are in ms.",
+  "$comment": "Pure hysteresis reducer. Start from initialMachine(0): state still, enteredAt 0, no pending. Apply each step in order (stepMachine({now: t, walking})). When a step has expect, compare state, pending, and enteredAt / pendingSince if present. config overrides the defaults (enterMovingAfterMs 3000, exitMovingAfterMs 10000); cases that test a specific delay set it explicitly so they do not depend on the default, and one case checks the defaults themselves. Times are in ms.",
   "version": 1,
   "cases": [
     {
+      "name": "defaults: enters moving after 3 s, leaves after 10 s",
+      "steps": [
+        {"t": 0, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 2999, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 3000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 3000}},
+        {"t": 4000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 4000}},
+        {"t": 13999, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 4000}},
+        {"t": 14000, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 14000}}
+      ]
+    },
+    {
       "name": "enters moving only after 5 s of sustained walking",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
         {"t": 1000, "walking": true},
@@ -13,6 +25,7 @@
     },
     {
       "name": "one millisecond short of the threshold is still pending",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
         {"t": 4999, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
@@ -21,6 +34,7 @@
     },
     {
       "name": "a 2 s walk does not enter moving",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
         {"t": 1000, "walking": true},
@@ -31,6 +45,7 @@
     },
     {
       "name": "a brief interruption restarts the clock",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
         {"t": 3000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
@@ -42,6 +57,7 @@
     },
     {
       "name": "exits moving only after 10 s of non-walking",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
         {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
@@ -52,6 +68,7 @@
     },
     {
       "name": "a 4 s traffic-light pause does not exit moving",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
         {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
@@ -63,6 +80,7 @@
     },
     {
       "name": "never walking stays still with nothing pending",
+      "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 0}},
         {"t": 30000, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 0}}

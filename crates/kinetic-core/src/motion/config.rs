@@ -48,7 +48,7 @@ impl Default for MotionConfig {
             max_cadence: 2.5,
             moving_activities: vec![ActivityKind::Walking],
             min_activity_confidence: 0.5,
-            enter_moving_after_ms: 5000.0,
+            enter_moving_after_ms: 3000.0,
             exit_moving_after_ms: 10000.0,
             cadence_window_ms: 4000.0,
             min_steps_for_cadence: 4,

@@ -2,6 +2,7 @@
 // Run: npm run fixtures -w @kinetic-ui/spec (Node >= 22.6, no extra dependency).
 // The committed traces are the reference data; other implementations must agree
 // with them. This script only documents how they were made.
+// Traces recorded on real phones are NOT here: they live in fixtures/cadence-recorded.json (see add-recorded-trace.ts).
 import { writeFileSync } from 'node:fs';
 import { createCadenceEstimator } from '../../core/src/motion/cadence.ts';
 import { DEFAULT_MOTION_CONFIG } from '../../core/src/motion/config.ts';

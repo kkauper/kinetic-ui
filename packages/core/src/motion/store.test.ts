@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import synthetic from '@kinetic-ui/spec/fixtures/cadence-traces.json';
+import recorded from '@kinetic-ui/spec/fixtures/cadence-recorded.json';
 import { createFakeClock } from './test-utils';
 import { bindMotionAttribute } from './dom';
 import { createMotionStore } from './store';
@@ -215,5 +217,58 @@ describe('configure', () => {
     store.configure({ maxCadence: 2.5 });
     clock.advance(6000);
     expect(store.getState().state).toBe('moving');
+  });
+});
+
+describe('real recorded walk', () => {
+  it('switches to moving after about 5.5 s and never leaves moving (iPhone, hand-held, with a dropped-sample gap)', async () => {
+    const trace = recorded.cases[0]!;
+    const clock = createFakeClock(0);
+    let emit: ((sample: MotionSample) => void) | null = null;
+    const source: MotionSource = {
+      id: 'recorded',
+      start(next) {
+        emit = next;
+      },
+      stop() {},
+    };
+    const store = createMotionStore({ source, now: clock.now, scheduler: clock.scheduler });
+    await store.start();
+    let movingAt: number | null = null;
+    for (const [t, x, y, z] of trace.samples as [number, number, number, number][]) {
+      clock.advance(t - clock.now());
+      emit!({ kind: 'acceleration', t, x, y, z });
+      const state = store.getState().state;
+      if (state === 'moving' && movingAt === null) movingAt = t;
+      if (movingAt !== null) expect(state, `moving at ${t} ms`).toBe('moving');
+    }
+    expect(movingAt).not.toBeNull();
+    expect(movingAt!).toBeGreaterThan(4500);
+    expect(movingAt!).toBeLessThan(7000);
+  });
+});
+
+describe('traces without a rhythm', () => {
+  const silent = synthetic.cases.filter((c) => c.expect.every((e) => e.cadence === 0));
+  it('has still and jitter traces to check', () => {
+    expect(silent.length).toBeGreaterThanOrEqual(4);
+  });
+  it.each(silent.map((c) => [c.name, c] as const))('never switches to moving: %s', async (_name, trace) => {
+    const clock = createFakeClock(0);
+    let emit: ((sample: MotionSample) => void) | null = null;
+    const source: MotionSource = {
+      id: 'recorded',
+      start(next) {
+        emit = next;
+      },
+      stop() {},
+    };
+    const store = createMotionStore({ source, now: clock.now, scheduler: clock.scheduler });
+    await store.start();
+    for (const [t, x, y, z] of trace.samples as [number, number, number, number][]) {
+      clock.advance(Math.round(t) - clock.now());
+      emit!({ kind: 'acceleration', t: clock.now(), x, y, z });
+      expect(store.getState().state).toBe('still');
+    }
   });
 });

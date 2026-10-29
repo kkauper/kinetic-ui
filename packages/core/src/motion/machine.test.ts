@@ -10,14 +10,16 @@ function run(m: ReturnType<typeof initialMachine>, walking: boolean, from: numbe
 }
 
 describe('stepMachine', () => {
-  it('enters moving only after 5s of sustained walking', () => {
+  it('enters moving only after the enter delay of sustained walking', () => {
+    const enter = config.enterMovingAfterMs;
     let m = initialMachine(0);
-    m = run(m, true, 0, 4000);
+    m = stepMachine(m, { now: 0, walking: true }, config);
+    m = stepMachine(m, { now: enter - 1, walking: true }, config);
     expect(m.state).toBe('still');
     expect(m.pending).toBe('moving');
-    m = run(m, true, 5000, 5000);
+    m = stepMachine(m, { now: enter, walking: true }, config);
     expect(m.state).toBe('moving');
-    expect(m.enteredAt).toBe(5000);
+    expect(m.enteredAt).toBe(enter);
     expect(m.pending).toBeNull();
   });
 
@@ -29,25 +31,27 @@ describe('stepMachine', () => {
   });
 
   it('restarts the clock after a brief interruption', () => {
-    let m = run(initialMachine(0), true, 0, 3000);
-    m = run(m, false, 4000, 4000);
-    m = run(m, true, 5000, 9000);
+    const enter = config.enterMovingAfterMs;
+    let m = stepMachine(initialMachine(0), { now: 0, walking: true }, config);
+    m = stepMachine(m, { now: 1000, walking: false }, config);
+    m = stepMachine(m, { now: 2000, walking: true }, config);
+    m = stepMachine(m, { now: 2000 + enter - 1, walking: true }, config);
     expect(m.state).toBe('still');
-    m = run(m, true, 10000, 10000);
+    m = stepMachine(m, { now: 2000 + enter, walking: true }, config);
     expect(m.state).toBe('moving');
   });
 
   it('exits moving only after 10s of non-walking', () => {
-    let m = run(initialMachine(0), true, 0, 5000);
+    let m = run(initialMachine(0), true, 0, config.enterMovingAfterMs);
     expect(m.state).toBe('moving');
-    m = run(m, false, 6000, 15000);
+    m = run(m, false, 6000, 6000 + config.exitMovingAfterMs - 1000);
     expect(m.state).toBe('moving');
-    m = run(m, false, 16000, 16000);
+    m = run(m, false, 6000 + config.exitMovingAfterMs, 6000 + config.exitMovingAfterMs);
     expect(m.state).toBe('still');
   });
 
   it('survives a 4s pause while moving', () => {
-    let m = run(initialMachine(0), true, 0, 5000);
+    let m = run(initialMachine(0), true, 0, config.enterMovingAfterMs);
     m = run(m, false, 6000, 9000);
     m = run(m, true, 10000, 20000);
     expect(m.state).toBe('moving');

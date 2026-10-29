@@ -42,7 +42,7 @@ export const DEFAULT_MOTION_CONFIG: MotionConfig = {
   maxCadence: 2.5,
   movingActivities: ['walking'],
   minActivityConfidence: 0.5,
-  enterMovingAfterMs: 5000,
+  enterMovingAfterMs: 3000,
   exitMovingAfterMs: 10000,
   cadenceWindowMs: 4000,
   minStepsForCadence: 4,

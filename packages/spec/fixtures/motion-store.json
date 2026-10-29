@@ -4,6 +4,7 @@
   "cases": [
     {
       "name": "an explicit state bypasses hysteresis and stays put",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "moving", "detected": "moving", "pending": null, "activity": null}},
         {"t": 60000, "do": "tick", "expect": {"state": "moving", "pending": null}},
@@ -12,6 +13,7 @@
     },
     {
       "name": "activity walking enters moving after 5 s of ticks",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"state": "still", "pending": "moving", "activity": "walking"}},
         {"t": 2000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
@@ -21,6 +23,7 @@
     },
     {
       "name": "activity automotive does not enter moving",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "automotive", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "automotive"}},
         {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
@@ -28,6 +31,7 @@
     },
     {
       "name": "activity running does not enter moving",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "running", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "running"}},
         {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
@@ -35,6 +39,7 @@
     },
     {
       "name": "activity cycling does not enter moving",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "cycling", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "cycling"}},
         {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
@@ -42,6 +47,7 @@
     },
     {
       "name": "low-confidence walking does not enter moving",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 0.33}, "expect": {"state": "still", "pending": null}},
         {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
@@ -49,7 +55,7 @@
     },
     {
       "name": "running enters moving when the config lists it",
-      "config": {"movingActivities": ["walking", "running"]},
+      "config": {"enterMovingAfterMs": 5000, "movingActivities": ["walking", "running"]},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "running", "confidence": 1}, "expect": {"pending": "moving"}},
         {"t": 5000, "do": "tick", "expect": {"state": "moving"}}
@@ -57,6 +63,7 @@
     },
     {
       "name": "OS classifier flicker restarts the hysteresis clock",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
         {"t": 3000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
@@ -68,6 +75,7 @@
     },
     {
       "name": "leaving moving takes 10 s of non-walking activity",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}},
         {"t": 5000, "do": "tick", "expect": {"state": "moving"}},
@@ -78,6 +86,7 @@
     },
     {
       "name": "an explicit state sample after an activity clears the activity",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"activity": "walking"}},
         {"t": 5000, "do": "tick", "expect": {"state": "moving"}},
@@ -86,6 +95,7 @@
     },
     {
       "name": "force overrides the detected state and null restores it",
+      "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 500, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"state": "still"}},
         {"t": 1000, "do": "force", "state": "moving", "expect": {"state": "moving", "detected": "still", "forced": "moving"}},
@@ -94,6 +104,7 @@
     },
     {
       "name": "show full: tap forces still, a detected stop releases it",
+      "config": {"enterMovingAfterMs": 5000},
       "showFull": true,
       "events": [
         {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "moving", "showFull": {"active": false, "taps": 0, "suppressed": false}}},
@@ -104,6 +115,7 @@
     },
     {
       "name": "show full: the third tap suppresses moving mode until resetSession",
+      "config": {"enterMovingAfterMs": 5000},
       "showFull": true,
       "events": [
         {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}},

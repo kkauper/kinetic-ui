@@ -35,7 +35,7 @@ export function DebugSensor() {
     ['envelope', `${fixed(diagnostics.envelope)} m/s²`],
     ['threshold', `${fixed(diagnostics.threshold)} m/s²`],
     ['steps in window', String(diagnostics.stepsInWindow)],
-    ['interval regularity', `${fixed(diagnostics.intervalCv)} (steady below 0.30)`],
+    ['interval regularity', `${fixed(diagnostics.intervalCv)} (steady below 0.25)`],
   ];
 
   const recording = recorder.status === 'recording';

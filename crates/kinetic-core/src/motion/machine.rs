@@ -89,8 +89,9 @@ mod tests {
         let config = MotionConfig::default();
         let m = step_machine(&initial_machine(0.0), 0.0, true, &config);
         assert_eq!(m.pending, Some(MotionState::Moving));
-        assert_eq!(step_machine(&m, 4999.0, true, &config).state, MotionState::Still);
-        assert_eq!(step_machine(&m, 5000.0, true, &config).state, MotionState::Moving);
+        let enter = config.enter_moving_after_ms;
+        assert_eq!(step_machine(&m, enter - 1.0, true, &config).state, MotionState::Still);
+        assert_eq!(step_machine(&m, enter, true, &config).state, MotionState::Moving);
     }
 
     #[test]

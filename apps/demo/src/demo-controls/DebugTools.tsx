@@ -42,6 +42,46 @@ function BandInput({ band, label }: { band: Band; label: string }) {
   );
 }
 
+type Delay = 'enterMovingAfterMs' | 'exitMovingAfterMs';
+
+const MIN_DELAY_S = 0.5;
+const MAX_DELAY_S = 30;
+
+/** Seconds in 0.5..30 as milliseconds, or null for anything else. */
+function parseDelay(text: string): number | null {
+  const seconds = Number.parseFloat(text);
+  return Number.isFinite(seconds) && seconds >= MIN_DELAY_S && seconds <= MAX_DELAY_S ? Math.round(seconds * 1000) : null;
+}
+
+/** One hysteresis delay in seconds. Invalid input stays in the field but is not applied. */
+function DelayInput({ field, label }: { field: Delay; label: string }) {
+  const [text, setText] = useState(String(motionStore.config[field] / 1000));
+  const invalid = parseDelay(text) === null;
+  const id = `debug-${field}`;
+  return (
+    <div className="k-debug-tools__field">
+      <label htmlFor={id}>{label}</label>
+      <TextField.Root
+        id={id}
+        type="number"
+        inputMode="decimal"
+        step={0.5}
+        min={MIN_DELAY_S}
+        max={MAX_DELAY_S}
+        size="3"
+        value={text}
+        color={invalid ? 'red' : undefined}
+        aria-invalid={invalid}
+        onChange={(event) => {
+          setText(event.target.value);
+          const ms = parseDelay(event.target.value);
+          if (ms !== null) motionStore.configure({ [field]: ms });
+        }}
+      />
+    </div>
+  );
+}
+
 /** Desktop tuning tools, all directly visible inside the debug sheet. */
 export function DebugTools() {
   const [cadence, setCadence] = useState(1.8);
@@ -87,6 +127,13 @@ export function DebugTools() {
         <div className="k-debug-tools__bands">
           <BandInput band="minCadence" label="Min cadence" />
           <BandInput band="maxCadence" label="Max cadence" />
+        </div>
+      </section>
+      <section className="k-sheet__section" aria-labelledby="debug-delay-heading">
+        <h3 id="debug-delay-heading" className="k-sheet__heading">Switch delays (seconds, 0.5 to 30)</h3>
+        <div className="k-debug-tools__bands">
+          <DelayInput field="enterMovingAfterMs" label="Enter after (s)" />
+          <DelayInput field="exitMovingAfterMs" label="Leave after (s)" />
         </div>
       </section>
       <section className="k-sheet__section" aria-labelledby="debug-reset-heading">

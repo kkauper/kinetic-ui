@@ -49,13 +49,38 @@ const ENVELOPE_RATIO = 0.8;
  * in the window is above this, the "steps" are hand jitter or noise and the cadence is 0.
  * Becomes a config field with the next FFI change.
  */
-const MAX_INTERVAL_CV = 0.3;
+const MAX_INTERVAL_CV = 0.25;
+
+/**
+ * Missed-step folding. A dropped run of samples (iOS lost 470 ms once in a real trace) or a soft
+ * step leaves one interval at about 2 (or 3) times the usual one, which on its own would fail the
+ * regularity check. An interval within `FOLD_TOLERANCE` of k times the median (k = 2 or 3) is
+ * counted as k intervals of length interval / k. Becomes a config field with the next FFI change.
+ */
+const FOLD_TOLERANCE = 0.25;
 
 /** Time constant (ms) of the smoothed sample interval behind `sampleRateHz` (diagnostics only). */
 const RATE_MS = 1000;
 
 /** Smoothing coefficient of an exponential average with time constant `tau` over a step of `dt` ms. */
 const alphaFor = (dt: number, tau: number) => (dt <= 0 ? 0 : 1 - Math.exp(-dt / tau));
+
+/** Splits intervals that are about 2 or 3 times the median into that many equal ones (see `FOLD_TOLERANCE`). */
+function foldMissedSteps(intervals: number[]): number[] {
+  if (intervals.length === 0) return intervals;
+  const typical = median(intervals);
+  if (typical <= 0) return intervals;
+  const folded: number[] = [];
+  for (const interval of intervals) {
+    const k = Math.round(interval / typical);
+    if ((k === 2 || k === 3) && Math.abs(interval - k * typical) <= FOLD_TOLERANCE * k * typical) {
+      for (let i = 0; i < k; i++) folded.push(interval / k);
+    } else {
+      folded.push(interval);
+    }
+  }
+  return folded;
+}
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -99,8 +124,10 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
 
   const threshold = () => Math.max(read().stepThreshold, ENVELOPE_RATIO * envelope);
 
+  const foldedIntervals = () => foldMissedSteps(steps.slice(1).map((t, i) => t - (steps[i] ?? t)));
+
   const intervalCv = () => {
-    const intervals = steps.slice(1).map((t, i) => t - (steps[i] ?? t));
+    const intervals = foldedIntervals();
     if (intervals.length < 2) return 0;
     const mean = intervals.reduce((sum, v) => sum + v, 0) / intervals.length;
     if (mean <= 0) return 0;
@@ -134,7 +161,7 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
       prune(now);
       const config = read();
       if (steps.length < config.minStepsForCadence) return 0;
-      const intervals = steps.slice(1).map((t, i) => t - (steps[i] ?? t));
+      const intervals = foldedIntervals();
       if (intervalCv() > MAX_INTERVAL_CV) return 0;
       const typical = median(intervals);
       const last = steps[steps.length - 1] ?? 0;

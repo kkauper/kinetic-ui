@@ -68,14 +68,14 @@ describe('createCadenceEstimator', () => {
 
   it('reports 0 for steps at irregular intervals', () => {
     const estimator = createCadenceEstimator(config);
-    // Bumps 0.5, 0.9, 0.3, 1.3, 0.4 s apart: enough steps, but not periodic.
-    const bumps = [500, 1400, 1700, 3000, 3400, 3900];
+    // Bumps 0.9, 0.3, 1.2, 0.3, 0.9 s apart: enough steps, but not periodic.
+    const bumps = [500, 1400, 1700, 2900, 3200, 4100];
     for (let t = 0; t <= 4500; t += 20) {
       const z = 9.81 + bumps.reduce((sum, b) => sum + 2 * Math.exp(-(((t - b) / 60) ** 2)), 0);
       estimator.push({ t, x: 0, y: 0, z });
     }
     expect(estimator.diagnostics().stepsInWindow).toBeGreaterThanOrEqual(config.minStepsForCadence);
-    expect(estimator.diagnostics().intervalCv).toBeGreaterThan(0.3);
+    expect(estimator.diagnostics().intervalCv).toBeGreaterThan(0.25);
     expect(estimator.cadence(4500)).toBe(0);
   });
 
@@ -88,5 +88,15 @@ describe('createCadenceEstimator', () => {
     expect(d.intervalCv).toBeLessThan(0.1);
     estimator.reset();
     expect(estimator.diagnostics()).toEqual({ sampleRateHz: 0, signal: 0, envelope: 0, threshold: config.stepThreshold, stepsInWindow: 0, intervalCv: 0 });
+  });
+
+  it('counts a missed step (doubled interval) as two steps', () => {
+    const estimator = createCadenceEstimator(config);
+    // 1.8 steps/s bounce with the samples of one step dropped (a 500 ms hole, as iOS does at times).
+    for (let t = 0; t <= 8000; t += 20) {
+      if (t > 4300 && t < 4800) continue;
+      estimator.push({ t, x: 0, y: 0, z: 9.81 + 1 * Math.sin((2 * Math.PI * 1.8 * t) / 1000) });
+    }
+    expect(Math.abs(estimator.cadence(8000) - 1.8)).toBeLessThanOrEqual(0.2);
   });
 });

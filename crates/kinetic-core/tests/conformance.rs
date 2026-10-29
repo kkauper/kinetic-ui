@@ -154,7 +154,17 @@ struct TraceExpect {
 
 #[test]
 fn cadence_traces() {
-    let cases: Vec<TraceCase> = parse(&load("cadence-traces.json")["cases"]);
+    cadence_file("cadence-traces.json");
+}
+
+/// Traces recorded on real phones with the debug sheet.
+#[test]
+fn cadence_recorded_traces() {
+    cadence_file("cadence-recorded.json");
+}
+
+fn cadence_file(file: &str) {
+    let cases: Vec<TraceCase> = parse(&load(file)["cases"]);
     let config = MotionConfig::default();
     let mut failures = Vec::new();
     for c in &cases {
@@ -181,7 +191,7 @@ fn cadence_traces() {
             check(e, &mut estimator);
         }
     }
-    finish("cadence-traces.json", cases.len(), &failures);
+    finish(file, cases.len(), &failures);
 }
 
 #[derive(Deserialize)]

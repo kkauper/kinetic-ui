@@ -37,7 +37,7 @@ One behaviour spec, two implementations. The web keeps its TypeScript core becau
 - Components never touch sensors. They read the motion store; only the demo controls pick a source.
 - Moving mode is a CSS token set on `[data-motion='moving']`: bigger targets, fewer elements, same layout positions.
 - Walking means a cadence inside the band (1.5 to 2.5 steps/s by default). Below the minimum or above the maximum is not walking, so the full form shows.
-- The detector enters moving after about 5 s of walking and leaves it after about 10 s of not walking.
+- The detector enters moving after about 3 s of walking and leaves it after about 10 s of not walking.
 - "Show full form" is always available while moving. It is the escape hatch for false positives.
 - Questions marked `deferrable` can be postponed with "Later" and are collected for the end.
 - Every answer is saved to the form model and to `localStorage` as soon as it changes.
@@ -244,18 +244,18 @@ The defaults live in `packages/core/src/motion/config.ts`:
 | --- | --- | --- |
 | `minCadence` / `maxCadence` | 1.5 / 2.5 steps/s | Your walking pace sits outside the band shown in the overlay. |
 | `stepThreshold` | 0.3 m/s² | The floor of the adaptive step threshold (the threshold itself follows how hard the phone moves, see below). Cadence stays 0 while walking: lower it. Phantom steps while holding still: raise it. |
-| `enterMovingAfterMs` | 5000 | The UI simplifies too eagerly: raise it. |
+| `enterMovingAfterMs` | 3000 | The UI simplifies too eagerly: raise it. Takes a while to react: lower it. Also adjustable in the debug sheet (Enter after / Leave after). |
 | `exitMovingAfterMs` | 10000 | The full form returns too slowly or too quickly at stops. |
 | `cadenceWindowMs` / `minStepsForCadence` | 4000 / 4 | Cadence reacts too slowly or is too jumpy. |
 | `minStepIntervalMs` | 200 | Double-counted steps. It also caps detection at 5 steps/s. |
 
 Native platforms use the same constants: `MotionConfig` in Rust has the same defaults. `movingActivities` and `minActivityConfidence` apply to activity samples (OS classifiers), not to cadence.
 
-The step threshold adapts: it is the larger of `stepThreshold` and 0.8 times the recent mean of the step signal, so a phone held in the hand (vertical bounce of only 0.3 to 1 m/s²) is measured as well as one in a pocket. Cadence is only reported while the step intervals are regular (coefficient of variation up to 0.3); irregular jitter shows 0. The 0.8 ratio, the 2 s envelope and the 0.3 limit are constants in `cadence.ts` and `cadence.rs` for now and become config fields with the next FFI change.
+The step threshold adapts: it is the larger of `stepThreshold` and 0.8 times the recent mean of the step signal, so a phone held in the hand (vertical bounce of only 0.3 to 1 m/s²) is measured as well as one in a pocket. Cadence is only reported while the step intervals are regular (coefficient of variation up to 0.25, after counting an interval of about 2 or 3 times the usual one as 2 or 3 missed steps); irregular jitter shows 0. The 0.8 ratio, the 2 s envelope, the 0.25 limit and the 25 % folding tolerance are constants in `cadence.ts` and `cadence.rs` for now and become config fields with the next FFI change.
 
 #### Recording a trace from a phone
 
-If cadence is wrong on your phone, send us the raw data: open the debug sheet, start walking mode (or the accelerometer), and look at the Sensor section (sample rate, signal, envelope, threshold, steps in window, interval regularity). Walk normally holding the phone as you would to read the form, tap "Record 20 s" and keep walking until it finishes. Then tap "Copy trace" (or "Download trace", which saves `kinetic-trace-<timestamp>.json`) and send us the JSON. You can put a note such as "walking, phone in right hand, reading" into the `note` field first. The trace holds only acceleration samples `[t_ms, x, y, z]`, the user agent and the sample rate.
+If cadence is wrong on your phone, send us the raw data: open the debug sheet, start walking mode (or the accelerometer), and look at the Sensor section (sample rate, signal, envelope, threshold, steps in window, interval regularity). Walk normally holding the phone as you would to read the form, tap "Record 20 s" and keep walking until it finishes. Then tap "Copy trace" (or "Download trace", which saves `kinetic-trace-<timestamp>.json`) and send us the JSON. You can put a note such as "walking, phone in right hand, reading" into the `note` field first. The trace holds only acceleration samples `[t_ms, x, y, z]`, the user agent and the sample rate. Recorded traces become fixtures: `node packages/spec/scripts/add-recorded-trace.ts <trace.json> "<generic name>" <known cadence> <tolerance>` adds one to `packages/spec/fixtures/cadence-recorded.json`, which both the TypeScript and Rust conformance suites run.
 
 If the stepper never appears, check the cadence in the overlay first. If it is inside the band, wait out `enterMovingAfterMs`.
 
