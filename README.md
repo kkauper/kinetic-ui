@@ -35,7 +35,7 @@ Live demo: https://kineticui.kauper.co (works on a phone over HTTPS).
 | `@kinetic-ui/spec` | Language-neutral data: the form schema, JSON conformance fixtures every implementation runs, and design tokens generated into CSS, Swift and Kotlin. |
 | `apps/demo` | The demo: Vite, React and Radix Themes. |
 
-These are private workspace packages. They are not published to npm.
+The packages live in this repository and are not published to npm.
 
 ## The store contract
 
@@ -138,44 +138,32 @@ npm run typecheck
 npm run build
 ```
 
-## Deploy
+Motion sensors need HTTPS, so use the live demo to try walking detection on a phone. Locally, the "Simulate walking" switch and the simulated step source in the debug tools work without sensors.
 
-The demo is a static site served by Cloudflare Workers (static assets) at https://kineticui.kauper.co. Cloudflare builds it from the GitHub repo. Every push to `main` deploys. Other branches get their own preview URL (shown under the Worker's Previews in the dashboard). GitHub Actions (`.github/workflows/ci.yml`) runs tests, typecheck and build on every push to `main` and on pull requests; it does not deploy.
+## Try it on a phone
 
-One-time setup:
-
-1. In the Cloudflare dashboard, go to Workers & Pages, Create application, and pick the GitHub repo. Name the Worker `kinetic-ui` (it must match `name` in `wrangler.jsonc`).
-2. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. Leave the root directory at `/` (the repo root).
-3. Save and deploy. The Node version defaults to a current one; to pin it, set `NODE_VERSION` under Settings, Build, or add a `.node-version` file.
-4. Attach the domain: Worker, Settings, Domains & Routes, Add, Custom Domain, `kineticui.kauper.co`. The `kauper.co` zone is managed in Cloudflare, so Cloudflare creates the DNS record and certificate itself. Delete any existing `kineticui` CNAME first.
-
-Manual deploy from a machine logged in with `npx wrangler login`: `npm run deploy`.
-
-## Test on a real phone
-
-1. Motion sensors only work over HTTPS, and iOS asks for permission on a tap. The easiest path is the deployed demo at https://kineticui.kauper.co. To host your own copy, see [Deploy](#deploy).
-2. iPhone (Safari): open the URL, tap "Walking mode", allow "Motion & Orientation Access", then walk at a normal pace for 5 to 8 s. The stepper appears. Stop for about 10 s and the full form returns.
+1. Open https://kineticui.kauper.co on your phone. Motion sensors only work over HTTPS, and iOS asks for permission on a tap.
+2. iPhone (Safari): tap "Walking mode", allow "Motion & Orientation Access", then walk at a normal pace for 5 to 8 s. The stepper appears. Stop for about 10 s and the full form returns.
    If you tapped "Don't allow", iOS usually remembers it for the site. Close the tab and reopen it, or clear the site's data (usually Settings, Apps, Safari, Advanced, Website Data). Menus move between iOS versions.
-3. Android (Chrome): open the URL, tap "Walking mode" (a permission prompt may or may not appear, depending on the Chrome version), then walk.
-4. Local changes on a phone: HTTPS is required for sensors, so either deploy or use a tunnel. Cloudflare quick tunnels need no account:
-   ```sh
-   npm run dev
-   npx cloudflared tunnel --url http://localhost:5173
-   ```
-   Open the printed `https://<random>.trycloudflare.com` URL. Vite blocks unknown Host headers by default, so `apps/demo/vite.config.ts` sets `server.allowedHosts: ['.trycloudflare.com']`. The manual "Simulate walking" switch needs no sensor and works over plain HTTP on the LAN.
-5. Tuning: open the debug overlay with the "Debug" toggle in the demo controls, or add `?debug` to the URL. It shows state, detected or forced, source, cadence against the walking band, time in state and any pending transition. The constants are in `packages/core/src/motion/config.ts`:
+3. Android (Chrome): tap "Walking mode" (a permission prompt may or may not appear, depending on the Chrome version), then walk.
+4. Without a phone: the "Simulate walking" switch flips the mode by hand, and the debug tools include a simulated step source with a cadence slider.
 
-   | Constant | Default | Adjust when |
-   | --- | --- | --- |
-   | `minCadence` / `maxCadence` | 1.5 / 2.5 steps/s | Your walking pace sits outside the band shown in the overlay. |
-   | `stepThreshold` | 1.2 m/s^2 | Stepper never appears and cadence stays 0: lower it. Phantom steps while holding still: raise it. |
-   | `enterMovingAfterMs` | 5000 | UI flips too eagerly: raise it. |
-   | `exitMovingAfterMs` | 10000 | Full form returns too slowly or too quickly at stops. |
-   | `cadenceWindowMs` / `minStepsForCadence` | 4000 / 4 | Cadence reacts too slowly or is too jumpy. |
-   | `minStepIntervalMs` | 250 | Double-counted steps. |
+### Tuning
 
-   If the stepper never appears, check the cadence in the overlay first. If it is inside the band but nothing happens, wait out `enterMovingAfterMs`.
-6. Desktop: the debug tools include a simulated step source with a cadence slider, so switching can be tried without a phone.
+Open the debug overlay with the "Debug" toggle in the demo controls, or add `?debug` to the URL. It shows the state, whether it is detected or forced, the source, the cadence against the walking band, time in state and any pending transition. The walking band (min and max cadence) can be changed live under "Debug tools": anything below the minimum or above the maximum counts as not walking and shows the full form.
+
+The defaults live in `packages/core/src/motion/config.ts`:
+
+| Constant | Default | Adjust when |
+| --- | --- | --- |
+| `minCadence` / `maxCadence` | 1.5 / 2.5 steps/s | Your walking pace sits outside the band shown in the overlay. |
+| `stepThreshold` | 1.2 m/s² | Cadence stays 0 while walking: lower it. Phantom steps while holding still: raise it. |
+| `enterMovingAfterMs` | 5000 | The UI simplifies too eagerly: raise it. |
+| `exitMovingAfterMs` | 10000 | The full form returns too slowly or too quickly at stops. |
+| `cadenceWindowMs` / `minStepsForCadence` | 4000 / 4 | Cadence reacts too slowly or is too jumpy. |
+| `minStepIntervalMs` | 200 | Double-counted steps. It also caps detection at 5 steps/s. |
+
+If the stepper never appears, check the cadence in the overlay first. If it is inside the band, wait out `enterMovingAfterMs`.
 
 ## Accessibility
 
@@ -200,7 +188,6 @@ packages/
 apps/
   demo/    Vite + React + Radix Themes; stores.ts wires the singletons, demo-controls/ owns the sources
 .github/workflows/ci.yml       tests, typecheck and build on push and PR
-wrangler.jsonc                 Cloudflare Workers static assets config
 DECISIONS.md                   design record
 ```
 
