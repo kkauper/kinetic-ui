@@ -1,4 +1,3 @@
-import { Button } from '@radix-ui/themes';
 import { useMotion, useShowFull } from '@kinetic-ui/react';
 import { PinnedReadout } from '../demo-controls/DebugOverlay';
 import { DemoControls } from '../demo-controls/DemoControls';
@@ -7,6 +6,7 @@ import { FullForm } from '../FullForm';
 import { usePageFocus } from '../route/usePageFocus';
 import { Stepper } from '../stepper/Stepper';
 import { motionStore, showFull } from '../stores';
+import { Pill } from '../ui/Pill';
 import { useUiSize } from '../ui/useUiSize';
 
 /** The sign-up flow: full form when still, one question at a time when moving. */
@@ -27,9 +27,9 @@ export function Demo() {
         {mode === 'moving' ? (
           <>
             <span className="k-modebar__label">Simplified</span>
-            <Button variant="soft" size={buttonSize} radius="full" onClick={() => showFull.showFull()}>
+            <Pill variant="soft" size={buttonSize} onClick={() => showFull.showFull()}>
               Show full form
-            </Button>
+            </Pill>
           </>
         ) : (
           <span className="k-modebar__label">Full form</span>

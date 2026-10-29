@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button, TextField } from '@radix-ui/themes';
+import { TextField } from '@radix-ui/themes';
 import { emailDomainCompletions, normalizeEmail, suggestEmailDomain } from '@kinetic-ui/core';
 import type { TextFieldSchema } from '@kinetic-ui/core';
 import { useUiSize } from '../ui/useUiSize';
 import { keepFocus } from '../ui/keepFocus';
+import { Pill } from '../ui/Pill';
 import { FieldFrame } from './FieldFrame';
 import { describedBy, fieldIds } from './ids';
 import type { FieldProps } from './types';
@@ -69,7 +70,7 @@ export function TextInputField({ field, value, error, onChange, presentation, la
       {completions.length > 0 ? (
         <div role="group" aria-label="Complete email address" className="k-chips">
           {completions.map((completion) => (
-            <Button
+            <Pill
               key={completion.domain}
               type="button"
               variant="soft"
@@ -80,7 +81,7 @@ export function TextInputField({ field, value, error, onChange, presentation, la
               onClick={() => set(completion.email)}
             >
               @{completion.domain}
-            </Button>
+            </Pill>
           ))}
         </div>
       ) : null}
@@ -88,9 +89,9 @@ export function TextInputField({ field, value, error, onChange, presentation, la
         {suggestion ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             Did you mean {suggestion.email}?
-            <Button type="button" variant="soft" size={controlSize} {...keepFocus} onClick={() => set(suggestion.email)}>
+            <Pill type="button" variant="soft" size={controlSize} {...keepFocus} onClick={() => set(suggestion.email)}>
               Use {suggestion.domain}
-            </Button>
+            </Pill>
           </span>
         ) : null}
       </div>

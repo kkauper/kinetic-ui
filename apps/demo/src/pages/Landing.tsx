@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@radix-ui/themes';
+import { Pill } from '../ui/Pill';
 import { REPO_URL } from '../layout/Header';
 import { usePageFocus } from '../route/usePageFocus';
 
@@ -74,9 +75,9 @@ function CodeBlock({ snippet, onCopied }: { snippet: Snippet; onCopied: (message
     <div className="k-code">
       <div className="k-code__bar">
         <span className="k-code__lang">{snippet.language}</span>
-        <button type="button" className="k-pill-button" onClick={copy}>
+        <Pill type="button" size="1" variant="soft" color="gray" className="k-copy" aria-label={`Copy ${snippet.label} snippet`} onClick={copy}>
           Copy
-        </button>
+        </Pill>
       </div>
       {/* Scrollable region: focusable so keyboard users can scroll it with the arrow keys. */}
       <pre className="k-code__pre" tabIndex={0} aria-label={`${snippet.label} code example`}>

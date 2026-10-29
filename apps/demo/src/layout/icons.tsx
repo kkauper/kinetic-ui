@@ -5,11 +5,11 @@ const base: SVGProps<SVGSVGElement> = { 'aria-hidden': true, focusable: 'false',
 /** Gyroscope: gimbal circle, tilted ring, axle (original drawing, master in packages/spec/brand/logo.svg). Monochrome (currentColor). */
 export function LogoMark({ size = 24, ...props }: SVGProps<SVGSVGElement> & { size?: number }) {
   return (
-    <svg {...base} width={size} height={size} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg {...base} width={size} height={size} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <circle cx="12" cy="12" r="7.5" />
       <path d="M2 12A10 3.6 0 0 1 22 12" />
       <path d="M22 12A10 3.6 0 0 1 2 12" />
-      <path d="M12 2V12.2M12 17.8V22" />
+      <path d="M12 2V13M12 18.2V22" />
     </svg>
   );
 }

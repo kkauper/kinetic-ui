@@ -1,14 +1,16 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Badge, Button, Heading } from '@radix-ui/themes';
+import { Badge, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
 import { PinnedReadout } from '../demo-controls/DebugOverlay';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { focusField, focusStepperControl } from '../fields/focusField';
 import { normalizeEmailAnswers } from '../fields/normalize';
 import { keepFocus } from '../ui/keepFocus';
+import { Pill } from '../ui/Pill';
 import { useUiSize } from '../ui/useUiSize';
 import { formModel as model, showFull } from '../stores';
+import { Summary } from './Summary';
 import { useSwipeBack } from './useSwipeBack';
 
 /** Delay so the user sees their selection before an unambiguous tap advances. */
@@ -28,6 +30,7 @@ export function Stepper() {
   const isDone = field === undefined;
   const pending = model.pendingDeferred();
 
+  const [created, setCreated] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearAdvance = () => {
@@ -50,7 +53,7 @@ export function Stepper() {
   useLayoutEffect(() => {
     clearAdvance();
     let retry = 0;
-    if (isDone) headingRef.current?.focus();
+    if (isDone) headingRef.current?.focus(); // The summary has no input: its heading takes focus.
     else {
       focusStepperControl();
       // Radix Slider hides its thumb until its own layout effect has measured it: try once more
@@ -61,7 +64,7 @@ export function Stepper() {
       cancelAnimationFrame(retry);
       clearAdvance();
     };
-  }, [step, isDone]);
+  }, [step, isDone, created]);
 
   const swipe = useSwipeBack(() => model.back());
 
@@ -90,9 +93,22 @@ export function Stepper() {
     }
   }
 
+  function createAccount() {
+    normalizeEmailAnswers(model);
+    if (model.validateAll()) {
+      setCreated(true);
+      return;
+    }
+    // Back to the first invalid question; the step effect focuses its input.
+    const { errors } = model.getState();
+    const index = fields.findIndex((f) => errors[f.id]);
+    if (index >= 0) model.goTo(index);
+  }
+
   function onSubmit(event: FormEvent) {
-    event.preventDefault(); // Enter in the text field = Next.
+    event.preventDefault(); // Enter in the text field = Next; on the summary = Create account.
     if (!isDone) next();
+    else if (!created) createAccount();
   }
 
   const canDefer = field?.deferrable === true && !model.isAnswered(field.id);
@@ -106,10 +122,14 @@ export function Stepper() {
       <div className="k-stepper__group">
         <div className="k-stepper__header">
           <div aria-live="polite">
-            {isDone ? 'All questions visited' : `Question ${step + 1} of ${fields.length}`}
+            {isDone
+              ? created
+                ? 'Account created'
+                : `Review: ${fields.filter((f) => model.isAnswered(f.id)).length} of ${fields.length} answered`
+              : `Question ${step + 1} of ${fields.length}`}
           </div>
-          {pending.length > 0 ? (
-            <Badge asChild size="3" color="amber">
+          {pending.length > 0 && !isDone ? (
+            <Badge asChild size="3" color="amber" radius="full">
               <button type="button" onClick={() => model.goTo(fields.length)}>
                 {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
               </button>
@@ -121,36 +141,39 @@ export function Stepper() {
 
         <div className="k-stepper__body">
           <Heading as="h2" ref={headingRef} tabIndex={isDone ? -1 : undefined} className="k-stepper__heading">
-            {isDone ? "That's everything for now" : field.label}
+            {isDone ? (created ? 'Account created (demo — nothing was sent)' : 'Review your answers') : field.label}
           </Heading>
 
           {isDone ? (
-            <>
-              {pending.length > 0 ? (
-                <section aria-labelledby="later-heading">
-                  <h3 id="later-heading">
-                    {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
-                  </h3>
-                  <ul className="k-later-list">
-                    {pending.map((id) => {
-                      const index = fields.findIndex((f) => f.id === id);
-                      return (
-                        <li key={id}>
-                          <Button type="button" variant="soft" size={buttonSize} onClick={() => model.goTo(index)}>
-                            {fields[index]?.label}
-                          </Button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ) : null}
+            created ? (
               <div>
-                <Button type="button" variant="outline" size={buttonSize} onClick={() => showFull.showFull()}>
-                  Review full form
-                </Button>
+                <Pill
+                  type="button"
+                  variant="soft"
+                  size={buttonSize}
+                  onClick={() => {
+                    model.reset();
+                    setCreated(false);
+                  }}
+                >
+                  Start over
+                </Pill>
               </div>
-            </>
+            ) : (
+              <>
+                <Summary
+                  fields={fields}
+                  answers={state.answers}
+                  pending={pending}
+                  onChange={(index) => model.goTo(index)}
+                />
+                <div>
+                  <Pill type="button" variant="soft" color="gray" size="2" className="k-summary__button" onClick={() => model.back()}>
+                    Back
+                  </Pill>
+                </div>
+              </>
+            )
           ) : (
             <FieldRenderer
               // One key for all text-like steps: React keeps the same <input> (and its focus).
@@ -165,34 +188,42 @@ export function Stepper() {
         </div>
       </div>
 
-      <div className="k-thumb-bar">
-        <Button
-          type="button"
-          variant="soft"
-          color="gray"
-          size={buttonSize}
-          disabled={step === 0}
-          {...keepFocus}
-          onClick={() => {
-            clearAdvance();
-            model.back();
-          }}
-        >
-          Back
-        </Button>
-        {isDone ? null : (
-          <div className="k-thumb-bar__end">
-            {canDefer ? (
-              <Button type="button" variant="outline" size={buttonSize} {...keepFocus} onClick={defer}>
-                Later
-              </Button>
-            ) : null}
-            <Button type="submit" size={buttonSize} {...keepFocus}>
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+      {isDone && created ? null : (
+        <div className="k-thumb-bar">
+          {isDone ? (
+            <Pill type="submit" size="4" className="k-submit">
+              Create account
+            </Pill>
+          ) : (
+            <>
+              <Pill
+                type="button"
+                variant="soft"
+                color="gray"
+                size={buttonSize}
+                disabled={step === 0}
+                {...keepFocus}
+                onClick={() => {
+                  clearAdvance();
+                  model.back();
+                }}
+              >
+                Back
+              </Pill>
+              <div className="k-thumb-bar__end">
+                {canDefer ? (
+                  <Pill type="button" variant="outline" size={buttonSize} {...keepFocus} onClick={defer}>
+                    Later
+                  </Pill>
+                ) : null}
+                <Pill type="submit" size={buttonSize} {...keepFocus}>
+                  Next
+                </Pill>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </form>
   );
 }

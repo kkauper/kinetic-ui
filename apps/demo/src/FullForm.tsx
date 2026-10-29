@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Badge, Button, Callout, Heading } from '@radix-ui/themes';
+import { Badge, Callout, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
 import { FieldRenderer } from './fields/FieldRenderer';
 import { focusField } from './fields/focusField';
 import { normalizeEmailAnswers } from './fields/normalize';
+import { Pill } from './ui/Pill';
 import { useUiSize } from './ui/useUiSize';
 import { formModel as model } from './stores';
 
@@ -48,18 +49,16 @@ export function FullForm() {
           className={pending.includes(field.id) ? 'k-field--deferred' : undefined}
         />
       ))}
-      <div>
-        <Button type="submit" size={buttonSize}>
-          Create account
-        </Button>
-      </div>
+      <Pill type="submit" size="4" className="k-submit">
+        Create account
+      </Pill>
       <div role="status">
         {submitted ? (
           <>
             <Callout.Root color="green" className="k-callout">
               <Callout.Text>Account created (demo — nothing was sent)</Callout.Text>
             </Callout.Root>
-            <Button
+            <Pill
               type="button"
               variant="soft"
               size={buttonSize}
@@ -69,7 +68,7 @@ export function FullForm() {
               }}
             >
               Start over
-            </Button>
+            </Pill>
           </>
         ) : null}
       </div>

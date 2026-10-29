@@ -2,7 +2,7 @@
 
 `logo.svg` is the Kinetic UI logo: a simplified gyroscope (gimbal circle, a tilted ring, an axle that sticks out above and below). It is an original drawing, part of this repository under Apache-2.0.
 
-- 24x24 viewBox, single strokes (`stroke="currentColor"`, width 2, round caps and joins), geometry within 2-22 so it stays legible at 16 px.
+- 24x24 viewBox, single strokes (`stroke="currentColor"`, width 1.5, round caps and joins), geometry within 2-22 so it stays legible at 16 px.
 - The lower half of the ring passes in front of the axle (the axle is broken there); the upper half passes behind it.
 
 ## Exports

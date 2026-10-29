@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { Button, Slider, TextField } from '@radix-ui/themes';
+import { Slider, TextField } from '@radix-ui/themes';
 import { formModel, motionStore, showFull, simulatorSource } from '../stores';
+import { Pill } from '../ui/Pill';
 import { useThumbA11y } from '../ui/useThumbA11y';
 import { switchSource } from './switchSource';
 
@@ -68,7 +69,7 @@ export function DebugTools() {
           }}
         />
         <div>
-          <Button
+          <Pill
             type="button"
             size="3"
             variant="soft"
@@ -78,7 +79,7 @@ export function DebugTools() {
             }}
           >
             Use simulator
-          </Button>
+          </Pill>
         </div>
       </section>
       <section className="k-sheet__section" aria-labelledby="debug-band-heading">
@@ -91,12 +92,12 @@ export function DebugTools() {
       <section className="k-sheet__section" aria-labelledby="debug-reset-heading">
         <h3 id="debug-reset-heading" className="k-sheet__heading">Reset</h3>
         <div className="k-debug-tools__buttons">
-          <Button type="button" size="3" variant="soft" color="gray" onClick={() => showFull.resetSession()}>
+          <Pill type="button" size="3" variant="soft" color="gray" onClick={() => showFull.resetSession()}>
             Reset Show-full session
-          </Button>
-          <Button type="button" size="3" variant="soft" color="red" onClick={() => formModel.reset()}>
+          </Pill>
+          <Pill type="button" size="3" variant="soft" color="red" onClick={() => formModel.reset()}>
             Clear saved answers
-          </Button>
+          </Pill>
         </div>
       </section>
     </>
