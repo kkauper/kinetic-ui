@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
     "@kinetic-ui/core": "*",
     "@kinetic-ui/react": "*",
     "@kinetic-ui/spec": "*",

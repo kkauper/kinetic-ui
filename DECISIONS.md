@@ -126,6 +126,9 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 **Chosen:** `<Theme appearance="dark" accentColor="blue" grayColor="slate" radius="large">`, pill-shaped (`radius: full`) tags and links, `color-scheme: dark` and `<meta name="theme-color">` (#111113, Radix slate-1) so the phone's browser chrome matches. Dark only, no toggle.
 **Why:** the demo is used outdoors on a phone and a dark UI with Radix tokens keeps contrast predictable; the visual language follows the owner's reference (header with logo and GitHub pill, pill tags, hero, tabs).
 
+### Font
+**Chosen:** Hanken Grotesk (OFL-1.1), self-hosted as a variable font via `@fontsource-variable/hanken-grotesk`, so the demo makes no third-party font requests (GDPR). Set through Radix's `--default-font-family` / `--heading-font-family` in `tokens.css`; code stays monospace.
+
 ### Hash-routed landing page
 **Chosen:** `#/` is a landing page (what it is, install snippets, the model), `#/demo` is the sign-up demo. A 10-line `useHashRoute` hook over `hashchange`; no router dependency, and it works on any static host without rewrite rules. `?debug` lives before the hash, so `/?debug#/demo` works. On a route change focus moves to the page's `<h1>` and the document title updates.
 **Rejected:** a router library (overkill for two pages) and path routing (needs host rewrites).
@@ -143,6 +146,10 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 1. **Slider thumb size.** Radix's largest Slider thumb is about 14 px (`--slider-thumb-size: calc(var(--slider-track-size) + var(--space-1))`). Too small to hit while walking. Override, scoped to moving mode: `[data-motion='moving'] .rt-SliderRoot { --slider-track-size: var(--k-slider-track); --slider-thumb-size: var(--k-slider-thumb); }` (12 px and 32 px, from the tokens). The thumb's `::before` hit area is 3× the thumb, so 96 px. Uses Radix's own variables, so it survives minor upgrades, but relies on the internal class name `.rt-SliderRoot`.
 2. **Slider thumb ARIA.** Radix Themes spreads `aria-*` props onto the Slider root, but the element with `role="slider"` is the thumb, which received no accessible name and no `aria-valuetext`. A small layout effect sets `aria-labelledby`, `aria-valuetext` ("Weekly", not "2"), `aria-describedby` and `aria-invalid` on the thumb. Radix never renders these attributes itself, so they are not overwritten.
 3. **TextField.** No override needed: `TextField.Root` forwards `type`, `inputMode`, `autoComplete`, `autoCapitalize`, `autoCorrect`, `spellCheck` and `enterKeyHint` to the inner `<input>` (verified in the rendered DOM).
+
+### Logo
+**Chosen:** an original gyroscope drawing: gimbal circle, a tilted ring (lower half in front of the axle, upper half behind it) and an axle that sticks out above and below. Single 2 px strokes on a 24 px grid, so it stays readable at 16 px (an earlier double-ring version was a blob at that size). One master, `packages/spec/brand/logo.svg` (`currentColor`); `npm run icons` in `packages/spec` renders the favicon, touch/PWA icons and the iOS app icon (light and dark) with Playwright, and the Android adaptive icon is the same geometry as a vector drawable.
+**Why:** a gyroscope reads as "motion and orientation", the phone's motion sensors. It is a metaphor only: the model uses the accelerometer and the OS activity classifier, not the gyroscope.
 
 ### Accessibility basics
 - Real `<label>`s, or `aria-labelledby` for groups.

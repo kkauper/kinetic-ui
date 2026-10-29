@@ -7,11 +7,13 @@
   "exports": {
     "./schemas/*": "./schemas/*",
     "./fixtures/*": "./fixtures/*",
-    "./generated/*": "./generated/*"
+    "./generated/*": "./generated/*",
+    "./brand/*": "./brand/*"
   },
   "scripts": {
     "tokens": "node scripts/build-tokens.mjs",
-    "fixtures": "node --experimental-strip-types scripts/generate-cadence-traces.ts"
+    "fixtures": "node --experimental-strip-types scripts/generate-cadence-traces.ts",
+    "icons": "node scripts/export-icons.mjs"
   },
   "devDependencies": {
     "style-dictionary": "^5.7.1"
