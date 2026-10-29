@@ -2,6 +2,22 @@
 
 use super::config::MotionConfig;
 
+/// Time constant (ms) of the average of |signal| that sizes the step threshold. About three steps
+/// of a slow walk, so one weak step does not move it much but a change of grip is followed in
+/// seconds. A module constant, not a `MotionConfig` field, so the FFI and the generated
+/// Swift/Kotlin stay unchanged; it becomes a config field with the next FFI change.
+const ENVELOPE_MS: f64 = 2000.0;
+
+/// The step threshold is `max(step_threshold, ENVELOPE_RATIO * envelope)`. The envelope is the mean
+/// of |signal|, about 0.5 to 0.6 of the peak height of a smoothed bounce, so 0.8 puts the
+/// threshold at roughly 40 to 50 % of a typical peak. Becomes a config field with the next FFI change.
+const ENVELOPE_RATIO: f64 = 0.8;
+
+/// Real walking is periodic. When the coefficient of variation (stdev / mean) of the step
+/// intervals in the window is above this, the "steps" are hand jitter or noise and the cadence is 0.
+/// Becomes a config field with the next FFI change.
+const MAX_INTERVAL_CV: f64 = 0.3;
+
 /// Smoothing coefficient of an exponential average with time constant `tau` over a step of `dt` ms.
 fn alpha_for(dt: f64, tau: f64) -> f64 {
     if dt <= 0.0 { 0.0 } else { 1.0 - (-dt / tau).exp() }
@@ -18,23 +34,47 @@ fn median(values: &[f64]) -> f64 {
     }
 }
 
+/// Coefficient of variation (population stdev / mean) of the intervals; 0 with fewer than two.
+fn interval_cv(intervals: &[f64]) -> f64 {
+    if intervals.len() < 2 {
+        return 0.0;
+    }
+    let n = intervals.len() as f64;
+    let mean = intervals.iter().sum::<f64>() / n;
+    if mean <= 0.0 {
+        return 0.0;
+    }
+    let variance = intervals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n;
+    variance.sqrt() / mean
+}
+
 /// Demo-grade step counter. The acceleration magnitude has gravity removed by
 /// subtracting a slow moving average (the baseline), then is lightly smoothed.
 /// Both averages use time constants, so the result does not depend on the
 /// sample rate (phones deliver 50-100 Hz).
 ///
-/// A step is a rising crossing of `step_threshold` at least
+/// A step is a rising crossing of the threshold at least
 /// `min_step_interval_ms` after the previous step; the detector re-arms only
-/// once the signal drops below zero, so one bounce counts once. Cadence is
-/// 1000 / the median interval between steps in the recent window, and is 0
-/// when there are too few steps or the last step is overdue (the rhythm
-/// stopped).
+/// once the signal drops below zero, so one bounce counts once. The threshold
+/// adapts to how hard the phone moves: `max(step_threshold, ENVELOPE_RATIO *
+/// envelope)`, where `step_threshold` is the floor (noise level) and the
+/// envelope is the recent mean |signal|. A phone held in the hand bounces far
+/// less than one in a pocket, so a fixed threshold never fired there.
+/// Cadence is 1000 / the median interval between steps in the recent window.
+/// It is 0 when there are too few steps, when the last step is overdue (the
+/// rhythm stopped), or when the intervals are irregular (coefficient of
+/// variation above `MAX_INTERVAL_CV`): a lower threshold lets jitter produce
+/// steps, but only walking is periodic.
+///
+/// The web core also has a debug-only `diagnostics()`; it is deliberately not
+/// mirrored here (web-only, no shared fixtures).
 ///
 /// The config is passed on every call so live tuning takes effect immediately.
 #[derive(Debug, Clone)]
 pub struct CadenceEstimator {
     baseline: Option<f64>,
     signal: f64,
+    envelope: f64,
     armed: bool,
     last_t: Option<f64>,
     steps: Vec<f64>,
@@ -52,6 +92,7 @@ impl CadenceEstimator {
         Self {
             baseline: None,
             signal: 0.0,
+            envelope: 0.0,
             armed: true,
             last_t: None,
             steps: Vec::new(),
@@ -73,9 +114,12 @@ impl CadenceEstimator {
         };
         self.baseline = Some(baseline);
         self.signal += alpha_for(dt, config.signal_smoothing_ms) * (magnitude - baseline - self.signal);
+        // The threshold is read before this sample moves the envelope, so a peak does not raise its own bar.
+        let limit = config.step_threshold.max(ENVELOPE_RATIO * self.envelope);
+        self.envelope += alpha_for(dt, ENVELOPE_MS) * (self.signal.abs() - self.envelope);
         if self.signal < 0.0 {
             self.armed = true;
-        } else if self.armed && self.signal >= config.step_threshold {
+        } else if self.armed && self.signal >= limit {
             self.armed = false;
             if self
                 .steps
@@ -95,6 +139,9 @@ impl CadenceEstimator {
             return 0.0;
         }
         let intervals: Vec<f64> = self.steps.windows(2).map(|w| w[1] - w[0]).collect();
+        if interval_cv(&intervals) > MAX_INTERVAL_CV {
+            return 0.0;
+        }
         let typical = median(&intervals);
         let last = self.steps.last().copied().unwrap_or(0.0);
         if typical <= 0.0 || now - last > 2.0 * typical {
@@ -140,5 +187,52 @@ mod tests {
         assert!(e.cadence(5980.0, &config) > 0.0);
         e.reset();
         assert_eq!(e.cadence(5980.0, &config), 0.0);
+    }
+
+    fn bounce(amplitude: f64, hz: f64, seconds: f64) -> (CadenceEstimator, f64) {
+        let config = MotionConfig::default();
+        let mut e = CadenceEstimator::new();
+        let mut t = 0.0;
+        while t <= seconds * 1000.0 {
+            let z = 9.81 + amplitude * (std::f64::consts::TAU * hz * t / 1000.0).sin();
+            e.push(t, 0.0, 0.0, z, &config);
+            t += 1000.0 / 60.0;
+        }
+        (e, t)
+    }
+
+    #[test]
+    fn adaptive_threshold_catches_a_hand_held_bounce() {
+        // 0.6 m/s^2 is far below the old fixed threshold of 1.2.
+        let (mut e, end) = bounce(0.6, 1.8, 8.0);
+        let got = e.cadence(end, &MotionConfig::default());
+        assert!((got - 1.8).abs() <= 0.15, "got {got}");
+    }
+
+    #[test]
+    fn irregular_steps_report_no_cadence() {
+        let config = MotionConfig::default();
+        let mut e = CadenceEstimator::new();
+        // Bumps 0.5, 0.9, 0.3, 1.3, 0.4 s apart: enough steps, but not periodic.
+        let bumps = [500.0, 1400.0, 1700.0, 3000.0, 3400.0, 3900.0];
+        let mut t = 0.0;
+        while t <= 4500.0 {
+            let z = 9.81
+                + bumps
+                    .iter()
+                    .map(|b| 2.0 * (-((t - b) / 60.0_f64).powi(2)).exp())
+                    .sum::<f64>();
+            e.push(t, 0.0, 0.0, z, &config);
+            t += 20.0;
+        }
+        assert!(e.steps.len() >= config.min_steps_for_cadence as usize);
+        assert!(interval_cv(&[500.0, 900.0, 300.0, 1300.0, 400.0]) > MAX_INTERVAL_CV);
+        assert_eq!(e.cadence(4500.0, &config), 0.0);
+    }
+
+    #[test]
+    fn interval_cv_of_equal_intervals_is_zero() {
+        assert_eq!(interval_cv(&[500.0, 500.0, 500.0]), 0.0);
+        assert_eq!(interval_cv(&[500.0]), 0.0);
     }
 }

@@ -21,7 +21,11 @@ export interface MotionConfig {
   cadenceWindowMs: number;
   /** Minimum number of steps in the window before cadence is reported. */
   minStepsForCadence: number;
-  /** Acceleration above the running baseline (m/s^2) that counts as a step peak. */
+  /**
+   * Floor (m/s^2) of the adaptive step threshold: the smoothed acceleration above the running baseline
+   * must exceed max(this, a share of the recent peak height) to count as a step. Hand-held walking
+   * bounces only about 0.3 to 1 m/s^2.
+   */
   stepThreshold: number;
   /** Refractory period between steps (caps detectable cadence at 1000/ms steps/s). Must sit clearly below the period of the fastest rhythm to measure: at 250 a 4 steps/s shake was halved by sample jitter. */
   minStepIntervalMs: number;
@@ -42,7 +46,7 @@ export const DEFAULT_MOTION_CONFIG: MotionConfig = {
   exitMovingAfterMs: 10000,
   cadenceWindowMs: 4000,
   minStepsForCadence: 4,
-  stepThreshold: 1.2,
+  stepThreshold: 0.3,
   minStepIntervalMs: 200,
   signalSmoothingMs: 55,
   baselineMs: 1000,

@@ -3,6 +3,7 @@ import type { PointerEvent } from 'react';
 import { Dialog, Switch } from '@radix-ui/themes';
 import { CloseIcon } from '../layout/icons';
 import { Readout } from './DebugOverlay';
+import { DebugSensor } from './DebugSensor';
 import { DebugTools } from './DebugTools';
 import { debugUi, useDebugUi } from './debugUi';
 
@@ -86,6 +87,7 @@ export function DebugSheet() {
               Keep readout on screen
             </label>
           </section>
+          <DebugSensor />
           <DebugTools />
         </div>
       </Dialog.Content>

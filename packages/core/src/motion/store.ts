@@ -1,6 +1,7 @@
 import { createEmitter } from '../store';
 import type { ReadableStore } from '../store';
 import { createCadenceEstimator } from './cadence';
+import type { CadenceDiagnostics } from './cadence';
 import { DEFAULT_MOTION_CONFIG } from './config';
 import type { MotionConfig } from './config';
 import { initialMachine, isWalkingActivity, isWalkingCadence, stepMachine } from './machine';
@@ -19,6 +20,16 @@ export interface MotionStore extends ReadableStore<MotionSnapshot> {
   configure(partial: Partial<MotionConfig>): void;
   /** The current immutable config; replaced, never mutated, by `configure`. */
   readonly config: MotionConfig;
+  /**
+   * DEBUG ONLY, unstable: internals of the cadence estimator for the debug sheet. Not part of the
+   * snapshot, not mirrored in the Rust core, may change without notice.
+   */
+  getDiagnostics(): CadenceDiagnostics;
+  /**
+   * DEBUG ONLY, unstable: listens to every raw sample the source delivers (used by the trace recorder).
+   * Returns the unsubscribe function. Not mirrored in the Rust core.
+   */
+  onSample(listener: (sample: MotionSample) => void): () => void;
 }
 
 export interface MotionStoreOptions {
@@ -54,6 +65,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   const scheduler = options.scheduler ?? defaultScheduler();
   const estimator = createCadenceEstimator(() => config);
   const emitter = createEmitter();
+  const sampleListeners = new Set<(sample: MotionSample) => void>();
 
   let source: MotionSource | null = options.source ?? null;
   let machine: MachineState = initialMachine(now());
@@ -115,7 +127,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     publish();
   }
 
-  function onSample(sample: MotionSample): void {
+  function handleSample(sample: MotionSample): void {
+    for (const listener of [...sampleListeners]) listener(sample);
     if (sample.kind === 'state') {
       explicit = true;
       lastActivity = null;
@@ -157,7 +170,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     if (!current) return publish();
     try {
       await current.start((sample) => {
-        if (mine === generation) onSample(sample);
+        if (mine === generation) handleSample(sample);
       });
     } catch (e) {
       if (mine !== generation) return;
@@ -182,6 +195,13 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     },
     getState: () => snapshot,
     subscribe: emitter.subscribe,
+    getDiagnostics: () => estimator.diagnostics(),
+    onSample(listener) {
+      sampleListeners.add(listener);
+      return () => {
+        sampleListeners.delete(listener);
+      };
+    },
 
     start() {
       if (active) return Promise.resolve();

@@ -25,7 +25,9 @@ pub struct MotionConfig {
     pub cadence_window_ms: f64,
     /// Minimum number of steps in the window before cadence is reported.
     pub min_steps_for_cadence: u32,
-    /// Acceleration above the running baseline (m/s^2) that counts as a step peak.
+    /// Floor (m/s^2) of the adaptive step threshold: the signal above the running baseline
+    /// must exceed max(this, a share of the recent peak height) to count as a step.
+    /// Hand-held walking bounces only about 0.3 to 1 m/s^2.
     pub step_threshold: f64,
     /// Refractory period between steps. Must sit clearly below the period of
     /// the fastest rhythm to measure.
@@ -50,7 +52,7 @@ impl Default for MotionConfig {
             exit_moving_after_ms: 10000.0,
             cadence_window_ms: 4000.0,
             min_steps_for_cadence: 4,
-            step_threshold: 1.2,
+            step_threshold: 0.3,
             min_step_interval_ms: 200.0,
             signal_smoothing_ms: 55.0,
             baseline_ms: 1000.0,
