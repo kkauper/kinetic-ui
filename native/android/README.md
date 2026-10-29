@@ -93,7 +93,7 @@ Things to try:
 
 Accessibility and layout choices: the choice cards are one `selectableGroup` of `Role.RadioButton` items with an accent border and a check when selected; the slider announces its named position through `stateDescription`; the email field uses the email keyboard with autocorrect and capitalisation off; the bottom bar uses `imePadding()` (window resize mode `adjustResize`, edge to edge); every button is a pill and non-text boundaries use slate-9 (3.68:1); all sizes are `dp`/`sp`, so large font and display scale are respected. The demo adds no animations of its own.
 
-Font: Hanken Grotesk, bundled (`demo/src/main/res/font/hanken_grotesk.ttf`, copied from `packages/spec/brand/fonts`), SIL Open Font License 1.1 (`packages/spec/brand/fonts/OFL.txt`). No runtime download. The demo's UI test (`./gradlew :demo:testDebugUnitTest`, Robolectric) needs the host Rust library (`cargo build -p kinetic-ffi --release`); set `ROBOLECTRIC_DEPENDENCY_DIR` to a folder with Robolectric's `android-all` jars if the test JVM cannot reach Maven Central.
+Font: Hanken Grotesk, bundled (`demo/src/main/res/font/hanken_grotesk.ttf`, copied from `packages/spec/brand/fonts`), SIL Open Font License 1.1 (`packages/spec/brand/fonts/OFL.txt`). No runtime download. The demo's UI test (`./gradlew :demo:testDebugUnitTest`, Robolectric) needs the host Rust library (`cargo build -p kinetic-ffi --release`); set `ROBOLECTRIC_DEPENDENCY_DIR` to a folder with Robolectric's `android-all` jars if the test JVM cannot reach Maven Central. CI runs these tests, builds the debug APK and runs `:demo:lintDebug` in the `android-demo` job.
 
 ## Notes
 

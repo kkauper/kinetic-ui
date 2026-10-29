@@ -1,6 +1,7 @@
 # Quality gate only. Cloudflare builds and deploys the demo (see README, Deploy).
 # `check` covers the TypeScript packages, `rust` the Rust core and the UniFFI layer,
-# `kotlin-bindings` the generated Kotlin against the real library.
+# `kotlin-bindings` the generated Kotlin against the real library, `android-demo` the Android
+# library and demo app, `apple` the iOS side.
 name: CI
 
 on:
@@ -78,6 +79,53 @@ jobs:
       - name: Test Kotlin bindings
         working-directory: native/android
         run: ./gradlew :bindings-test:test
+
+  # Builds the Android library and demo, lints the demo and runs the JVM tests (the library's unit
+  # tests and the demo's Robolectric UI test). The hosted image ships the Android SDK, so
+  # ANDROID_HOME is set and settings.gradle.kts includes :kinetic and :demo. The host build of the
+  # Rust library is what Robolectric/JNA load (see uniffi.component.kinetic.libraryOverride in
+  # demo/build.gradle.kts). No jniLibs are built here, so the debug APK compiles but would not run on
+  # a device; the release workflow builds the real native libraries. Nothing runs on an emulator.
+  android-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Rust
+        # Installs the toolchain pinned in rust-toolchain.toml (rustup 1.28+, preinstalled).
+        run: rustup toolchain install
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build the host library
+        run: cargo build -p kinetic-ffi --release
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Install the Android platform
+        # compileSdk is 37 (package id android-37.0). Licences must be accepted first.
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          set +o pipefail
+          yes | "$sdkmanager" --licenses > /dev/null
+          set -o pipefail
+          "$sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"
+      - name: Build, lint and test
+        working-directory: native/android
+        run: ./gradlew :kinetic:testDebugUnitTest :demo:assembleDebug :demo:lintDebug :demo:testDebugUnitTest
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-demo-reports
+          path: |
+            native/android/demo/build/reports/
+            native/android/kinetic/build/reports/
+          if-no-files-found: ignore
 
   # First real compile of the Core Motion / SwiftUI code: builds the XCFramework, runs the Swift
   # tests on macOS and builds the demo app for the iOS Simulator (no signing).
