@@ -1,6 +1,26 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="packages/spec/brand/logo-on-dark.svg">
+  <img src="packages/spec/brand/logo-on-light.svg" alt="Kinetic UI logo" width="96">
+</picture>
+
 # Kinetic UI
 
 A headless model that simplifies your UI when the user is moving.
+
+[![CI](https://github.com/kkauper/kinetic-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/kkauper/kinetic-ui/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/kkauper/kinetic-ui?style=flat)](https://github.com/kkauper/kinetic-ui/releases)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0090ff?style=flat)](LICENSE)
+[![TypeScript 7.0](https://img.shields.io/badge/TypeScript-7.0-0090ff?style=flat&logo=typescript&logoColor=white)](packages/core)
+[![Rust 1.99](https://img.shields.io/badge/Rust-1.99-0090ff?style=flat&logo=rust&logoColor=white)](crates/kinetic-core)
+[![Swift 6](https://img.shields.io/badge/Swift-6-0090ff?style=flat&logo=swift&logoColor=white)](native/apple/README.md)
+[![Kotlin 2.4](https://img.shields.io/badge/Kotlin-2.4-0090ff?style=flat&logo=kotlin&logoColor=white)](native/android/README.md)
+[![Platforms: Web, iOS 17+, Android 8+](https://img.shields.io/badge/platforms-Web%20%C2%B7%20iOS%2017%2B%20%C2%B7%20Android%208%2B-0090ff?style=flat)](#native-ios-and-android)
+[![Accessibility: WCAG 2.2 AA targeted](https://img.shields.io/badge/a11y-WCAG%202.2%20AA%20targeted-0090ff?style=flat)](#accessibility)
+[![Live demo: kineticui.kauper.co](https://img.shields.io/badge/demo-kineticui.kauper.co-0090ff?style=flat)](https://kineticui.kauper.co)
+
+</div>
 
 Kinetic UI runs on the web (TypeScript), iOS (Swift) and Android (Kotlin). On the web it detects walking from the phone's accelerometer: a step cadence inside a min/max band counts as walking. On iOS and Android it can use the OS activity classifier instead (Core Motion, Activity Recognition). All platforms use the same hysteresis and the same "Show full form" escape hatch. When the user starts walking, a signup form switches from a full form to a one-question-at-a-time stepper with larger targets. When they stop, the full form returns. Answers survive every switch. This is a prototype; the design choices, rejected options and known limits are written down in [DECISIONS.md](DECISIONS.md).
 
@@ -274,6 +294,48 @@ Covered:
 
 Not covered: this is not a full audit. It was checked with keyboard and Playwright's accessibility snapshot, not with VoiceOver or TalkBack on the web, and the native screen readers have not been tested on devices yet. See [DECISIONS.md](DECISIONS.md).
 
+## Releases
+
+Release builds are on the [GitHub Releases page](https://github.com/kkauper/kinetic-ui/releases). Each release has:
+
+| Asset | What it is |
+|---|---|
+| `KineticFFI.xcframework.zip` | The Rust core as an XCFramework for iOS device, iOS Simulator and macOS. |
+| `KineticFFI.xcframework.zip.checksum` | The SwiftPM checksum of that zip. |
+| `kinetic-android-<version>.aar` | The Android library: generated Kotlin bindings, sources, stores, Compose bindings and the native library for arm64-v8a, armeabi-v7a and x86_64. |
+| `kinetic-ui-demo-web.zip` | The built web demo (static files). |
+
+**Swift.** Declare the XCFramework as a remote binary target in your package. The release notes list the exact URL and checksum:
+
+```swift
+.binaryTarget(
+    name: "KineticFFI",
+    url: "https://github.com/kkauper/kinetic-ui/releases/download/v0.1.0/KineticFFI.xcframework.zip",
+    checksum: "<contents of KineticFFI.xcframework.zip.checksum>"
+)
+```
+
+The Swift sources (`KineticBindings`, `KineticUI`) are in [native/apple/Sources](native/apple/Sources) and depend on a target named `KineticFFI`. In this repository the package points at a local XCFramework built by `scripts/build-xcframework.sh`.
+
+**Android.** Download the AAR into your module (for example `app/libs/`) and add it as a file dependency:
+
+```kotlin
+dependencies {
+    implementation(files("libs/kinetic-android-0.1.0.aar"))
+
+    // A file dependency brings no transitive dependencies, so add what the library needs.
+    // JNA must be the Android (@aar) artifact because it carries the native dispatcher.
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
+    // Also required: kotlinx-coroutines-android, androidx.core:core-ktx, androidx.lifecycle:lifecycle-runtime-compose,
+    // play-services-location (Activity Recognition), and Compose UI, foundation and Material 3.
+    // Versions are in native/android/gradle/libs.versions.toml.
+}
+```
+
+## Versioning
+
+Kinetic UI follows [Semantic Versioning](https://semver.org/). While the version is 0.x, the API may change between minor releases. The version is set in one place per ecosystem (the `package.json` files, the Cargo workspace, the Android and iOS demos) and kept in sync; the release workflow refuses to publish a tag that does not match. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## Project layout
 
 ```
@@ -292,7 +354,8 @@ native/
   generated/     UniFFI-generated Swift and Kotlin (do not edit)
 scripts/                       build the XCFramework and Android libraries, regenerate bindings
 rust-toolchain.toml            pinned Rust version
-.github/workflows/ci.yml       tests, typecheck and build on push and PR (web, Rust, Kotlin bindings)
+.github/workflows/ci.yml       tests, typecheck and build on push and PR (web, Rust, Kotlin bindings, Apple)
+.github/workflows/release.yml  builds the release assets and publishes a GitHub release for a version tag
 DECISIONS.md                   design record
 ```
 

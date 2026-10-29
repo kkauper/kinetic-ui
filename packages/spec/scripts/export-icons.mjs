@@ -1,15 +1,25 @@
-// Renders the PNG icons from brand/logo.svg with Playwright (deterministic: fixed sizes, no antialiasing seeds).
+// Writes the static SVG logos (logo-on-dark.svg, logo-on-light.svg) and renders the PNG icons from brand/logo.svg with Playwright (deterministic: fixed sizes, no antialiasing seeds).
 // Playwright is not a dependency of this package; if it is installed globally set NODE_PATH to the global node_modules.
 import { createRequire } from 'node:module';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const master = readFileSync(join(root, 'packages/spec/brand/logo.svg'), 'utf8');
+
+// Static logos for places that cannot honour currentColor (an <img> in a README renders it black).
+for (const [name, color] of [['logo-on-dark', '#edeef0'], ['logo-on-light', '#111113']]) {
+  const out = join(root, 'packages/spec/brand', `${name}.svg`);
+  writeFileSync(out, master.replace('stroke="currentColor"', `stroke="${color}"`));
+  console.log('wrote', out);
+}
+
+// Playwright is only needed for the PNGs below, so the SVGs above work without it.
+const { chromium } = require('playwright');
+
 const LIGHT = '#fafafa';
 const DARK = '#111113';
 const pub = join(root, 'apps/demo/public');

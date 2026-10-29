@@ -1,0 +1,231 @@
+# Builds the release assets and, for a version tag, publishes them as a GitHub release.
+#
+#   git tag v0.1.0 && git push origin v0.1.0     publishes a release
+#   Actions > Release > Run workflow             dry run: builds everything, publishes nothing
+#
+# The version has one source: "version" in the root package.json. The `verify` job fails the
+# run early if the tag or any other version in the repo disagrees with it.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Versions agree
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "package.json: $version"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match package.json version v$version"
+              exit 1
+            fi
+          else
+            echo "Not a tag run (dry run): skipping the tag check."
+          fi
+          fail=0
+          check() {
+            if [ "$2" != "$version" ]; then
+              echo "::error::$1 is '$2', expected '$version'"
+              fail=1
+            fi
+          }
+          for pkg in packages/core packages/react packages/spec apps/demo; do
+            check "$pkg/package.json" "$(node -p "require('./$pkg/package.json').version")"
+          done
+          check "Cargo.toml workspace version" "$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          check "Android demo versionName" "$(sed -n 's/.*versionName = "\(.*\)"/\1/p' native/android/demo/build.gradle.kts)"
+          check "iOS demo MARKETING_VERSION" "$(sed -n 's/.*MARKETING_VERSION: "\(.*\)"/\1/p' native/apple/Demo/project.yml)"
+          [ "$fail" = 0 ]
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            scripts/release-notes.sh "$version" > /dev/null
+          fi
+
+  apple:
+    needs: verify
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Rust
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios aarch64-apple-darwin x86_64-apple-darwin
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build the XCFramework
+        run: scripts/build-xcframework.sh
+      - name: Zip the XCFramework
+        run: >
+          ditto -c -k --sequesterRsrc --keepParent
+          native/apple/KineticFFI.xcframework KineticFFI.xcframework.zip
+      - name: Compute the SwiftPM checksum
+        # Run inside the package so SwiftPM has a manifest to work from.
+        working-directory: native/apple
+        run: swift package compute-checksum "$GITHUB_WORKSPACE/KineticFFI.xcframework.zip" | tr -d '[:space:]' > "$GITHUB_WORKSPACE/KineticFFI.xcframework.zip.checksum"
+      - name: Show the checksum
+        run: cat KineticFFI.xcframework.zip.checksum; echo
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple
+          path: |
+            KineticFFI.xcframework.zip
+            KineticFFI.xcframework.zip.checksum
+          if-no-files-found: error
+
+  android:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Rust
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked --version 4.1.2
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Locate the Android SDK and NDK
+        # The hosted Ubuntu image ships the SDK (ANDROID_HOME) and a default NDK
+        # (ANDROID_NDK_HOME, also ANDROID_NDK_LATEST_HOME). scripts/build-android.sh reads
+        # ANDROID_NDK_HOME. If the image has no NDK, install one with sdkmanager.
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_NDK_HOME=${ANDROID_NDK_HOME:-}"
+          echo "ANDROID_NDK_LATEST_HOME=${ANDROID_NDK_LATEST_HOME:-}"
+          ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_HOME:-}}"
+          if [ -z "$ndk" ] || [ ! -d "$ndk" ]; then
+            sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+            "$sdkmanager" --install "ndk;28.2.13676358"
+            ndk="$ANDROID_HOME/ndk/28.2.13676358"
+          fi
+          echo "Using NDK at $ndk"
+          echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
+      - name: Install the Android platform
+        # compileSdk is 37. Gradle would download it on demand, but only after licences are accepted.
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          set +o pipefail
+          yes | "$sdkmanager" --licenses > /dev/null
+          set -o pipefail
+          "$sdkmanager" --install "platforms;android-37"
+      - name: Build the native libraries
+        run: scripts/build-android.sh
+      - name: Build the AAR
+        working-directory: native/android
+        run: ./gradlew :kinetic:assembleRelease
+      - name: Name the AAR
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          mkdir -p out
+          cp native/android/kinetic/build/outputs/aar/kinetic-release.aar "out/kinetic-android-$version.aar"
+          ls -l out
+          unzip -l "out/kinetic-android-$version.aar" | grep libkinetic_ffi.so
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: out/kinetic-android-*.aar
+          if-no-files-found: error
+
+  web:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Zip the demo
+        run: (cd apps/demo/dist && zip -r -q "$GITHUB_WORKSPACE/kinetic-ui-demo-web.zip" .)
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: kinetic-ui-demo-web.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify, apple, android, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Download assets
+        uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Write the release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          checksum="$(tr -d '[:space:]' < assets/KineticFFI.xcframework.zip.checksum)"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/KineticFFI.xcframework.zip"
+          scripts/release-notes.sh "$version" > notes.md
+          {
+            echo
+            echo "### Swift Package Manager"
+            echo
+            echo "Add the Rust core to your own package as a remote binary target:"
+            echo
+            echo '```swift'
+            echo '.binaryTarget('
+            echo '    name: "KineticFFI",'
+            echo "    url: \"$url\","
+            echo "    checksum: \"$checksum\""
+            echo ')'
+            echo '```'
+          } >> notes.md
+          cat notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Kinetic UI $GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            assets/KineticFFI.xcframework.zip \
+            assets/KineticFFI.xcframework.zip.checksum \
+            assets/kinetic-android-*.aar \
+            assets/kinetic-ui-demo-web.zip
