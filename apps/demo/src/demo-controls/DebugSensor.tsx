@@ -9,8 +9,12 @@ const fixed = (n: number) => n.toFixed(2);
 /** Live estimator internals and the 20 s trace recorder. Debug-only: relies on the store's unstable diagnostics. */
 export function DebugSensor() {
   const [diagnostics, setDiagnostics] = useState(() => motionStore.getDiagnostics());
+  const [timeline, setTimeline] = useState(() => motionStore.getTimeline());
   useEffect(() => {
-    const timer = setInterval(() => setDiagnostics(motionStore.getDiagnostics()), 200);
+    const timer = setInterval(() => {
+      setDiagnostics(motionStore.getDiagnostics());
+      setTimeline(motionStore.getTimeline());
+    }, 200);
     return () => clearInterval(timer);
   }, []);
 
@@ -36,6 +40,16 @@ export function DebugSensor() {
     ['threshold', `${fixed(diagnostics.threshold)} m/s²`],
     ['steps in window', String(diagnostics.stepsInWindow)],
     ['interval regularity', `${fixed(diagnostics.intervalCv)} (steady below 0.25)`],
+  ];
+
+  // Seconds since the current source started; "—" until it happens.
+  const since = (at: number | null) =>
+    at === null || timeline.startedAt === null ? '—' : `${((at - timeline.startedAt) / 1000).toFixed(1)} s`;
+  const switchRows: [string, string][] = [
+    ['first step at', since(timeline.firstStepAt)],
+    ['walking first true at', since(timeline.firstWalkingAt)],
+    ['countdown restarts', String(timeline.restarts)],
+    ['switched to moving (time to moving)', since(timeline.movingAt)],
   ];
 
   const recording = recorder.status === 'recording';
@@ -69,6 +83,15 @@ export function DebugSensor() {
           <div key={name} className="k-debug__row">
             <dt>{name}</dt>
             <dd data-debug={`sensor-${name}`}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <h4 className="k-sheet__heading">Switch timeline (since the source started)</h4>
+      <dl className="k-debug__list">
+        {switchRows.map(([name, value]) => (
+          <div key={name} className="k-debug__row">
+            <dt>{name}</dt>
+            <dd data-debug={`timeline-${name}`}>{value}</dd>
           </div>
         ))}
       </dl>

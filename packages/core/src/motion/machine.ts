@@ -6,11 +6,25 @@ export interface MachineState {
   enteredAt: number;
   /** State we are leaning toward but have not committed to yet. */
   pending: MotionState | null;
+  /** When the lean started from zero progress. */
   pendingSince: number | null;
+  /** Leaky progress (ms) toward `pending`; commits at the enter / exit delay. 0 without a pending change. */
+  progressMs: number;
+  /** Time of the last step that touched `progressMs`; null without a pending change. */
+  progressAt: number | null;
 }
 
+/**
+ * A miss (input that argues against the pending change) takes this many ms of progress back per ms
+ * it lasts. A hit adds 1 per ms. 2 means walking must be seen about two thirds of the time to get
+ * there, so one irregular window or a dropped-sample gap costs a little, while a real stop (a few
+ * seconds in a row) still cancels a lean. Module constant, not a `MotionConfig` field, so the FFI
+ * stays unchanged; it becomes a config field with the next FFI change.
+ */
+export const DECAY_RATIO = 2;
+
 export function initialMachine(now: number): MachineState {
-  return { state: 'still', enteredAt: now, pending: null, pendingSince: null };
+  return { state: 'still', enteredAt: now, pending: null, pendingSince: null, progressMs: 0, progressAt: null };
 }
 
 /** Whether a cadence lies in the walking band (inclusive). */
@@ -24,9 +38,11 @@ export function isWalkingActivity(activity: ActivityKind, confidence: number, co
 }
 
 /**
- * Pure hysteresis step: a change of state is committed only after the opposite
- * condition has held continuously for the configured time. Returns the same
- * reference when nothing changed.
+ * Pure hysteresis step with a leaky accumulator: while the input argues for the other state,
+ * progress grows by the time since the last step; while it argues for the current state, progress
+ * shrinks by `DECAY_RATIO` times that time (and the lean is dropped at zero). The change is
+ * committed when progress reaches the configured delay. Returns the same reference when nothing
+ * changed.
  */
 export function stepMachine(
   m: MachineState,
@@ -34,15 +50,20 @@ export function stepMachine(
   config: MotionConfig,
 ): MachineState {
   const target: MotionState = input.walking ? 'moving' : 'still';
+  const dt = m.progressAt === null ? 0 : Math.max(input.now - m.progressAt, 0);
   if (target === m.state) {
-    return m.pending === null ? m : { ...m, pending: null, pendingSince: null };
+    if (m.pending === null) return m;
+    const progressMs = m.progressMs - dt * DECAY_RATIO;
+    if (progressMs <= 0) return { ...m, pending: null, pendingSince: null, progressMs: 0, progressAt: null };
+    return { ...m, progressMs, progressAt: input.now };
   }
   if (m.pending !== target || m.pendingSince === null) {
-    return { ...m, pending: target, pendingSince: input.now };
+    return { ...m, pending: target, pendingSince: input.now, progressMs: 0, progressAt: input.now };
   }
+  const progressMs = m.progressMs + dt;
   const needed = target === 'moving' ? config.enterMovingAfterMs : config.exitMovingAfterMs;
-  if (input.now - m.pendingSince >= needed) {
-    return { state: target, enteredAt: input.now, pending: null, pendingSince: null };
+  if (progressMs >= needed) {
+    return { state: target, enteredAt: input.now, pending: null, pendingSince: null, progressMs: 0, progressAt: null };
   }
-  return m;
+  return { ...m, progressMs, progressAt: input.now };
 }

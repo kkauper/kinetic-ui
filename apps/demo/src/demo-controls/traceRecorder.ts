@@ -16,6 +16,10 @@ export interface RecorderState {
  */
 let state: RecorderState = { status: 'idle', remainingS: 0, samples: 0 };
 let samples: [number, number, number, number][] = [];
+/** Decisions at about 10 Hz: [t, cadence, walking 0/1, state s/m, progress ms]; t shares the samples' origin. */
+let events: [number, number, number, string, number][] = [];
+let lastSampleT = 0;
+let eventTimer: ReturnType<typeof setInterval> | null = null;
 let origin: number | null = null;
 let startedAt = 0;
 let unsubscribe: (() => void) | null = null;
@@ -34,6 +38,8 @@ function finish() {
   unsubscribe = null;
   if (timer !== null) clearInterval(timer);
   timer = null;
+  if (eventTimer !== null) clearInterval(eventTimer);
+  eventTimer = null;
   set({ status: 'done', remainingS: 0, samples: samples.length });
 }
 
@@ -48,13 +54,21 @@ export const traceRecorder = {
   start() {
     if (state.status === 'recording') return;
     samples = [];
+    events = [];
     origin = null;
     startedAt = performance.now();
     unsubscribe = motionStore.onSample((sample) => {
       if (sample.kind !== 'acceleration') return;
       origin ??= sample.t;
+      lastSampleT = sample.t - origin;
       samples.push([round3(sample.t - origin), round3(sample.x), round3(sample.y), round3(sample.z)]);
     });
+    eventTimer = setInterval(() => {
+      if (origin === null) return;
+      const { cadence, detected } = motionStore.getState();
+      const { walking, progressMs } = motionStore.getTimeline();
+      events.push([round3(lastSampleT), cadence, walking ? 1 : 0, detected === 'moving' ? 'm' : 's', Math.round(progressMs)]);
+    }, 100);
     set({ status: 'recording', remainingS: RECORD_MS / 1000, samples: 0 });
     timer = setInterval(() => {
       const left = RECORD_MS - (performance.now() - startedAt);
@@ -67,6 +81,6 @@ export const traceRecorder = {
     if (state.status !== 'done') return null;
     const span = (samples[samples.length - 1]?.[0] ?? 0) / 1000;
     const sampleRateHz = span > 0 ? Math.round(((samples.length - 1) / span) * 10) / 10 : 0;
-    return JSON.stringify({ device: navigator.userAgent, sampleRateHz, note: '', samples });
+    return JSON.stringify({ device: navigator.userAgent, sampleRateHz, note: '', samples, events });
   },
 };

@@ -88,6 +88,8 @@ impl MotionEngine {
                     MachineState {
                         pending: None,
                         pending_since: None,
+                        progress_ms: 0.0,
+                        progress_at: None,
                         ..self.machine
                     }
                 } else {
@@ -96,6 +98,8 @@ impl MotionEngine {
                         entered_at: now,
                         pending: None,
                         pending_since: None,
+                        progress_ms: 0.0,
+                        progress_at: None,
                     }
                 };
                 self.publish(now)

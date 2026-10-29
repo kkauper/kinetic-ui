@@ -61,8 +61,14 @@ describe('stepMachine', () => {
   it('returns the same reference when nothing changes', () => {
     const m = initialMachine(0);
     expect(stepMachine(m, { now: 100, walking: false }, config)).toBe(m);
-    const pending = stepMachine(m, { now: 100, walking: true }, config);
-    expect(stepMachine(pending, { now: 200, walking: true }, config)).toBe(pending);
+    const moving = stepMachine(stepMachine(m, { now: 0, walking: true }, config), { now: config.enterMovingAfterMs, walking: true }, config);
+    expect(moving.state).toBe('moving');
+    expect(stepMachine(moving, { now: moving.enteredAt + 100, walking: true }, config)).toBe(moving);
+  });
+
+  it('keeps progress while pending (a lean is tracked, so the reference changes)', () => {
+    const pending = stepMachine(initialMachine(0), { now: 100, walking: true }, config);
+    expect(stepMachine(pending, { now: 600, walking: true }, config)).toMatchObject({ pending: 'moving', progressMs: 500 });
   });
 });
 

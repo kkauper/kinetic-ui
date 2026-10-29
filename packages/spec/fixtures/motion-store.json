@@ -62,15 +62,25 @@
       ]
     },
     {
-      "name": "OS classifier flicker restarts the hysteresis clock",
+      "name": "OS classifier flicker costs 2 x its duration of progress, it does not restart the clock",
       "config": {"enterMovingAfterMs": 5000},
       "events": [
         {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
         {"t": 3000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
-        {"t": 3500, "do": "sample", "sample": {"kind": "activity", "activity": "unknown", "confidence": 1}, "expect": {"state": "still", "pending": null}},
+        {"t": 3500, "do": "sample", "sample": {"kind": "activity", "activity": "unknown", "confidence": 1}, "expect": {"state": "still", "pending": "moving"}},
         {"t": 4000, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
-        {"t": 8999, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
-        {"t": 9000, "do": "tick", "expect": {"state": "moving", "pending": null}}
+        {"t": 6499, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 6500, "do": "tick", "expect": {"state": "moving", "pending": null}}
+      ]
+    },
+    {
+      "name": "a long non-walking activity cancels a pending lean",
+      "config": {"enterMovingAfterMs": 5000},
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
+        {"t": 3000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 3500, "do": "sample", "sample": {"kind": "activity", "activity": "stationary", "confidence": 1}, "expect": {"pending": "moving"}},
+        {"t": 5000, "do": "tick", "expect": {"state": "still", "pending": null}}
       ]
     },
     {

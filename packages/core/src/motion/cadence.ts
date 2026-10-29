@@ -14,6 +14,8 @@ export interface CadenceDiagnostics {
   stepsInWindow: number;
   /** Coefficient of variation (stdev / mean) of the step intervals in the window; 0 with fewer than two intervals. */
   intervalCv: number;
+  /** Time of the first step since the last reset; null before it. */
+  firstStepAt: number | null;
 }
 
 export interface CadenceEstimator {
@@ -116,6 +118,7 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
   let armed = true;
   let lastT: number | null = null;
   let steps: number[] = [];
+  let firstStepAt: number | null = null;
 
   const prune = (now: number) => {
     const { cadenceWindowMs } = read();
@@ -152,7 +155,10 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
       } else if (armed && signal >= limit) {
         armed = false;
         const last = steps[steps.length - 1];
-        if (last === undefined || t - last >= config.minStepIntervalMs) steps.push(t);
+        if (last === undefined || t - last >= config.minStepIntervalMs) {
+          steps.push(t);
+          firstStepAt ??= t;
+        }
       }
       prune(t);
     },
@@ -177,6 +183,7 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
         threshold: threshold(),
         stepsInWindow: steps.length,
         intervalCv: intervalCv(),
+        firstStepAt,
       };
     },
 
@@ -185,6 +192,7 @@ export function createCadenceEstimator(configOrGetter: MotionConfig | (() => Mot
       signal = 0;
       envelope = 0;
       meanDt = 0;
+      firstStepAt = null;
       armed = true;
       lastT = null;
       steps = [];

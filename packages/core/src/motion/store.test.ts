@@ -248,6 +248,28 @@ describe('real recorded walk', () => {
   });
 });
 
+describe('uneven real walk', () => {
+  it('a dropped-sample gap of 400 ms does not delay the switch (leaky hysteresis) and the timeline records it', async () => {
+    const samples = (recorded.cases[0]!.samples as [number, number, number, number][]).filter(([t]) => !(t >= 4000 && t < 4400));
+    const clock = createFakeClock(0);
+    let emit: ((sample: MotionSample) => void) | null = null;
+    const source: MotionSource = { id: 'recorded', start: (next) => void (emit = next), stop() {} };
+    const store = createMotionStore({ source, now: clock.now, scheduler: clock.scheduler });
+    await store.start();
+    for (const [t, x, y, z] of samples) {
+      clock.advance(t - clock.now());
+      emit!({ kind: 'acceleration', t, x, y, z });
+    }
+    const timeline = store.getTimeline();
+    expect(timeline.startedAt).toBe(0);
+    expect(timeline.firstStepAt).not.toBeNull();
+    expect(timeline.firstWalkingAt!).toBeGreaterThan(timeline.firstStepAt!);
+    expect(timeline.movingAt!).toBeLessThan(6500);
+    expect(timeline.movingAt! - timeline.firstWalkingAt!).toBeGreaterThanOrEqual(store.config.enterMovingAfterMs);
+    expect(store.getState().state).toBe('moving');
+  });
+});
+
 describe('traces without a rhythm', () => {
   const silent = synthetic.cases.filter((c) => c.expect.every((e) => e.cadence === 0));
   it('has still and jitter traces to check', () => {

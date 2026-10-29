@@ -8,6 +8,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const [file, name, cadenceArg, toleranceArg, fromArg] = process.argv.slice(2);
 if (!file || !name || !cadenceArg || !toleranceArg) throw new Error('usage: add-recorded-trace.ts <trace.json> <name> <cadence> <tolerance> [fromMs]');
+// A recording also carries `events` (the app's decisions at ~10 Hz). They are dropped here: the fixture checks the
+// estimator against the pace, and decisions made by an older algorithm would go stale.
 const trace = JSON.parse(readFileSync(file, 'utf8')) as { sampleRateHz: number; samples: number[][] };
 const cadence = Number(cadenceArg);
 const tolerance = Number(toleranceArg);

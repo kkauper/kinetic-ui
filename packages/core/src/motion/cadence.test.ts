@@ -87,7 +87,7 @@ describe('createCadenceEstimator', () => {
     expect(d.stepsInWindow).toBeGreaterThanOrEqual(4);
     expect(d.intervalCv).toBeLessThan(0.1);
     estimator.reset();
-    expect(estimator.diagnostics()).toEqual({ sampleRateHz: 0, signal: 0, envelope: 0, threshold: config.stepThreshold, stepsInWindow: 0, intervalCv: 0 });
+    expect(estimator.diagnostics()).toEqual({ sampleRateHz: 0, signal: 0, envelope: 0, threshold: config.stepThreshold, stepsInWindow: 0, intervalCv: 0, firstStepAt: null });
   });
 
   it('counts a missed step (doubled interval) as two steps', () => {

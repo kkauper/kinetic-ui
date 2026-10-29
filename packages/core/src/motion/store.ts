@@ -25,11 +25,28 @@ export interface MotionStore extends ReadableStore<MotionSnapshot> {
    * snapshot, not mirrored in the Rust core, may change without notice.
    */
   getDiagnostics(): CadenceDiagnostics;
+  /** DEBUG ONLY, unstable: milestones of the switch to moving since the current source started. */
+  getTimeline(): SwitchTimeline;
   /**
    * DEBUG ONLY, unstable: listens to every raw sample the source delivers (used by the trace recorder).
    * Returns the unsubscribe function. Not mirrored in the Rust core.
    */
   onSample(listener: (sample: MotionSample) => void): () => void;
+}
+
+/** DEBUG ONLY, unstable: when things happened since the source started, in store-clock ms (null: not yet). */
+export interface SwitchTimeline {
+  startedAt: number | null;
+  firstStepAt: number | null;
+  /** First time the input said "walking". */
+  firstWalkingAt: number | null;
+  /** Times a pending change to moving was dropped before it committed. */
+  restarts: number;
+  movingAt: number | null;
+  /** The latest walking input (cadence in band, or an activity). */
+  walking: boolean;
+  /** Progress (ms) of the pending change, see `stepMachine`. */
+  progressMs: number;
 }
 
 export interface MotionStoreOptions {
@@ -81,6 +98,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   let timer: unknown = null;
   /** Bumped on stop/setSource/start so late async results are ignored. */
   let generation = 0;
+  let walkingNow = false;
+  let timeline = { startedAt: null as number | null, firstWalkingAt: null as number | null, restarts: 0, movingAt: null as number | null };
 
   let snapshot: MotionSnapshot = {
     state: 'still',
@@ -122,7 +141,12 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
       const walking = lastActivity
         ? isWalkingActivity(lastActivity.activity, lastActivity.confidence, config)
         : isWalkingCadence(estimator.cadence(now()), config);
+      const before = machine;
       machine = stepMachine(machine, { now: now(), walking }, config);
+      walkingNow = walking;
+      if (walking) timeline.firstWalkingAt ??= now();
+      if (before.pending === 'moving' && machine.pending === null && machine.state === 'still') timeline.restarts++;
+      if (machine.state === 'moving' && before.state === 'still') timeline.movingAt ??= now();
     }
     publish();
   }
@@ -135,8 +159,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
       estimator.reset();
       machine =
         sample.state === machine.state
-          ? { ...machine, pending: null, pendingSince: null }
-          : { state: sample.state, enteredAt: now(), pending: null, pendingSince: null };
+          ? { ...machine, pending: null, pendingSince: null, progressMs: 0, progressAt: null }
+          : { state: sample.state, enteredAt: now(), pending: null, pendingSince: null, progressMs: 0, progressAt: null };
       publish();
     } else if (sample.kind === 'activity') {
       explicit = false;
@@ -158,6 +182,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     source?.stop();
     running = false;
     estimator.reset();
+    timeline = { startedAt: null, firstWalkingAt: null, restarts: 0, movingAt: null };
+    walkingNow = false;
     machine = initialMachine(now());
     explicit = false;
     lastActivity = null;
@@ -185,6 +211,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
       return;
     }
     running = true;
+    timeline.startedAt = now();
     timer = scheduler.setInterval(evaluate, config.tickIntervalMs);
     publish();
   }
@@ -196,6 +223,12 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     getState: () => snapshot,
     subscribe: emitter.subscribe,
     getDiagnostics: () => estimator.diagnostics(),
+    getTimeline: () => ({
+      ...timeline,
+      firstStepAt: estimator.diagnostics().firstStepAt,
+      walking: walkingNow,
+      progressMs: machine.progressMs,
+    }),
     onSample(listener) {
       sampleListeners.add(listener);
       return () => {

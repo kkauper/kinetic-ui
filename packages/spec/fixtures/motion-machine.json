@@ -1,5 +1,5 @@
 {
-  "$comment": "Pure hysteresis reducer. Start from initialMachine(0): state still, enteredAt 0, no pending. Apply each step in order (stepMachine({now: t, walking})). When a step has expect, compare state, pending, and enteredAt / pendingSince if present. config overrides the defaults (enterMovingAfterMs 3000, exitMovingAfterMs 10000); cases that test a specific delay set it explicitly so they do not depend on the default, and one case checks the defaults themselves. Times are in ms.",
+  "$comment": "Pure hysteresis reducer. Start from initialMachine(0): state still, enteredAt 0, no pending. Apply each step in order (stepMachine({now: t, walking})). When a step has expect, compare state, pending, and enteredAt / pendingSince if present. config overrides the defaults (enterMovingAfterMs 3000, exitMovingAfterMs 10000); cases that test a specific delay set it explicitly so they do not depend on the default, and one case checks the defaults themselves. Leaky accumulator: progressMs grows by the time since the previous step while the input argues for the pending change and shrinks by 2 x that time (decay ratio 2) while it does not; the lean is dropped at 0 and the change commits when progressMs reaches the delay. pendingSince is when the lean started from 0; progressMs is also checked where given. Times are in ms.",
   "version": 1,
   "cases": [
     {
@@ -44,15 +44,26 @@
       ]
     },
     {
-      "name": "a brief interruption restarts the clock",
+      "name": "a brief interruption costs 2 x its duration of progress, it does not restart the clock",
       "config": {"enterMovingAfterMs": 5000},
       "steps": [
         {"t": 0, "walking": true},
-        {"t": 3000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
-        {"t": 4000, "walking": false, "expect": {"state": "still", "pending": null}},
-        {"t": 5000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 5000}},
-        {"t": 9000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 5000}},
-        {"t": 10000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 10000}}
+        {"t": 3000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0, "progressMs": 3000}},
+        {"t": 4000, "walking": false, "expect": {"state": "still", "pending": "moving", "pendingSince": 0, "progressMs": 1000}},
+        {"t": 5000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0, "progressMs": 2000}},
+        {"t": 7999, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 8000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 8000, "progressMs": 0}}
+      ]
+    },
+    {
+      "name": "a long real stop still cancels the lean",
+      "config": {"enterMovingAfterMs": 5000},
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 3000, "walking": true, "expect": {"pending": "moving", "progressMs": 3000}},
+        {"t": 4000, "walking": false, "expect": {"pending": "moving", "progressMs": 1000}},
+        {"t": 5000, "walking": false, "expect": {"state": "still", "pending": null, "pendingSince": null, "progressMs": 0}},
+        {"t": 6000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 6000, "progressMs": 0}}
       ]
     },
     {
@@ -74,7 +85,8 @@
         {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
         {"t": 6000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
         {"t": 9000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
-        {"t": 10000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
+        {"t": 10000, "walking": true, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000, "progressMs": 1000}},
+        {"t": 10500, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000, "progressMs": 0}},
         {"t": 20000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}}
       ]
     },

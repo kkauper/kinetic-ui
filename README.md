@@ -37,7 +37,7 @@ One behaviour spec, two implementations. The web keeps its TypeScript core becau
 - Components never touch sensors. They read the motion store; only the demo controls pick a source.
 - Moving mode is a CSS token set on `[data-motion='moving']`: bigger targets, fewer elements, same layout positions.
 - Walking means a cadence inside the band (1.5 to 2.5 steps/s by default). Below the minimum or above the maximum is not walking, so the full form shows.
-- The detector enters moving after about 3 s of walking and leaves it after about 10 s of not walking.
+- The detector enters moving after about 3 s of walking and leaves it after about 10 s of not walking. Progress is leaky: a brief interruption (a dropped-sample gap, one irregular window) takes back twice its length instead of restarting the countdown, while a real stop still cancels it.
 - "Show full form" is always available while moving. It is the escape hatch for false positives.
 - Questions marked `deferrable` can be postponed with "Later" and are collected for the end.
 - Every answer is saved to the form model and to `localStorage` as soon as it changes.
@@ -255,7 +255,7 @@ The step threshold adapts: it is the larger of `stepThreshold` and 0.8 times the
 
 #### Recording a trace from a phone
 
-If cadence is wrong on your phone, send us the raw data: open the debug sheet, start walking mode (or the accelerometer), and look at the Sensor section (sample rate, signal, envelope, threshold, steps in window, interval regularity). Walk normally holding the phone as you would to read the form, tap "Record 20 s" and keep walking until it finishes. Then tap "Copy trace" (or "Download trace", which saves `kinetic-trace-<timestamp>.json`) and send us the JSON. You can put a note such as "walking, phone in right hand, reading" into the `note` field first. The trace holds only acceleration samples `[t_ms, x, y, z]`, the user agent and the sample rate. Recorded traces become fixtures: `node packages/spec/scripts/add-recorded-trace.ts <trace.json> "<generic name>" <known cadence> <tolerance>` adds one to `packages/spec/fixtures/cadence-recorded.json`, which both the TypeScript and Rust conformance suites run.
+If cadence is wrong on your phone, send us the raw data: open the debug sheet, start walking mode (or the accelerometer), and look at the Sensor section (sample rate, signal, envelope, threshold, steps in window, interval regularity). Walk normally holding the phone as you would to read the form, tap "Record 20 s" and keep walking until it finishes. Then tap "Copy trace" (or "Download trace", which saves `kinetic-trace-<timestamp>.json`) and send us the JSON. The recording also contains `events`, the app's own decisions at 10 Hz as `[t, cadence, walking 0/1, state s/m, progress ms]`, so we can see why a switch was slow. The Sensor section also shows a switch timeline (first step, first walking, countdown restarts, switch to moving, all in seconds since the source started). You can put a note such as "walking, phone in right hand, reading" into the `note` field first. The trace holds only acceleration samples `[t_ms, x, y, z]`, the user agent and the sample rate. Recorded traces become fixtures: `node packages/spec/scripts/add-recorded-trace.ts <trace.json> "<generic name>" <known cadence> <tolerance>` adds one to `packages/spec/fixtures/cadence-recorded.json`, which both the TypeScript and Rust conformance suites run.
 
 If the stepper never appears, check the cadence in the overlay first. If it is inside the band, wait out `enterMovingAfterMs`.
 
