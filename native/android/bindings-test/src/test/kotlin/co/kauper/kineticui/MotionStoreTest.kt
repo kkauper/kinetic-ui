@@ -155,3 +155,34 @@ class MotionStoreTest {
         assertEquals(MotionState.STILL, store.snapshot.value.state)
     }
 }
+
+/** The synthetic walk waveform, without coroutines or real time. */
+class WalkSignalTest {
+    @Test
+    fun `late jittered samples keep the frequency, so the detector still reads 2 steps per second`() {
+        val engine = uniffi.kinetic.MotionEngine(defaultConfig(), 0.0)
+        val signal = WalkSignal(cadence = 2.0)
+        val jitter = kotlin.random.Random(7)
+        var t = 0.0
+        while (t < 15_000.0) {
+            engine.pushSample(signal.sampleAt(t))
+            engine.tick(t)
+            t += 35 + jitter.nextInt(41) // 35..75 ms instead of the nominal 20 ms
+        }
+        val snapshot = engine.snapshot()
+        assertEquals(MotionState.MOVING, snapshot.state)
+        assertTrue(snapshot.cadence in 1.8..2.2, "cadence was ${snapshot.cadence}")
+    }
+
+    @Test
+    fun `phase stays continuous when the cadence changes`() {
+        val signal = WalkSignal(cadence = 1.0)
+        signal.sampleAt(0.0)
+        signal.sampleAt(500.0)
+        val before = signal.currentPhase
+        signal.cadence = 3.0
+        signal.sampleAt(600.0)
+        // Only the 100 ms since the last sample are at the new cadence: no jump, no reset.
+        assertEquals(before + 2 * Math.PI * 3.0 * 0.1, signal.currentPhase, 1e-9)
+    }
+}
