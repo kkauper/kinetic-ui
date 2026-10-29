@@ -1,15 +1,63 @@
-node_modules
-dist
-coverage
-.DS_Store
+# Patterns without a leading slash match in every folder.
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output and caches
+dist/
+build/
+coverage/
+.cache/
+.vite/
+.eslintcache
+*.tsbuildinfo
+.wrangler/
+
+# Logs
 *.log
-.wrangler
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+
+# Editors and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Rust
 target/
+
+# Apple (Swift package, Xcode, XcodeGen)
+.build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
 native/apple/KineticFFI.xcframework/
-native/apple/.build/
-native/apple/Demo/*.xcodeproj
 native/apple/Demo/KineticDemo/Info.plist
-native/android/**/build/
-native/android/.gradle/
-native/android/local.properties
+
+# Android (Gradle)
+.gradle/
+.kotlin/
+local.properties
+captures/
+*.apk
+*.aab
 native/android/kinetic/src/main/jniLibs/
