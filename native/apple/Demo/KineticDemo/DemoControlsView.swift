@@ -9,13 +9,21 @@ struct DemoControlsView: View {
     @Environment(DemoSources.self) private var sources
     @AppStorage("kinetic-ui:debug") private var debug = false
     @State private var cadence = 1.8
+    @State private var manualOn = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Toggle("Simulate walking", isOn: Binding(get: { manualWalking }, set: setManual))
+                Toggle("Simulate walking", isOn: $manualOn)
                     .toggleStyle(.switch)
                     .fixedSize()
+                    // No Binding(get:set:): see the note at the top of FieldView.swift.
+                    .onChange(of: manualWalking, initial: true) { _, walking in
+                        if manualOn != walking { manualOn = walking }
+                    }
+                    .onChange(of: manualOn) { _, on in
+                        if on != manualWalking { setManual(on) }
+                    }
                 Spacer()
             }
             HStack {

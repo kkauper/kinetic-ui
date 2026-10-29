@@ -2,6 +2,11 @@ import KineticUI
 import SwiftUI
 import UIKit
 
+// Why there is no `Binding(get:set:)` below: with Xcode 26.6 / Swift 6.3 (language mode 6) the
+// x86_64 simulator slice crashes in IRGen on the reabstraction thunk for that initializer's
+// `@isolated(any) @Sendable (Value) -> Void` setter. Controls bind to a local `@State` mirror
+// instead, kept in sync with the model by `onChange(of:)` in both directions.
+
 enum Presentation {
     /// The complete form: label, control and error per field.
     case full
@@ -112,17 +117,22 @@ private struct PlainTextInput: View {
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
 
+    @State private var text = ""
+
     var body: some View {
-        TextField(field.label, text: Binding(
-            get: { answerText(value) },
-            set: { onChange($0.isEmpty ? nil : .text(value: $0)) }
-        ))
-        .textFieldStyle(.roundedBorder)
-        .textContentType(contentType(for: autocomplete))
-        .submitLabel(presentation == .step ? .next : .done)
-        .onSubmit(onSubmit)
-        .frame(minHeight: metrics.targetMin)
-        .accessibilityHint(error ?? "")
+        TextField(field.label, text: $text)
+            .textFieldStyle(.roundedBorder)
+            .textContentType(contentType(for: autocomplete))
+            .submitLabel(presentation == .step ? .next : .done)
+            .onSubmit(onSubmit)
+            .frame(minHeight: metrics.targetMin)
+            .accessibilityHint(error ?? "")
+            .onChange(of: value, initial: true) { _, newValue in
+                if text != answerText(newValue) { text = answerText(newValue) }
+            }
+            .onChange(of: text) { _, newText in
+                if newText != answerText(value) { onChange(newText.isEmpty ? nil : .text(value: newText)) }
+            }
     }
 }
 
@@ -137,18 +147,18 @@ private struct EmailInput: View {
 
     @Environment(\.kineticMetrics) private var metrics
     @FocusState private var isFocused: Bool
+    @State private var text = ""
     /// The typo suggestion appears after a pause in typing, or immediately on blur.
     @State private var settledText = ""
 
     private static let suggestDelay: Duration = .milliseconds(500)
 
     var body: some View {
-        let current = answerText(value)
-        let suggestion = settledText == current ? suggestEmailDomain(value: current) : nil
-        let completions = emailDomainCompletions(value: current)
+        let suggestion = settledText == text ? suggestEmailDomain(value: text) : nil
+        let completions = emailDomainCompletions(value: text)
 
         VStack(alignment: .leading, spacing: metrics.gap) {
-            TextField(field.label, text: Binding(get: { current }, set: set))
+            TextField(field.label, text: $text)
                 .textFieldStyle(.roundedBorder)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
@@ -157,11 +167,11 @@ private struct EmailInput: View {
                 .submitLabel(presentation == .step ? .next : .done)
                 .focused($isFocused)
                 .onSubmit {
-                    normalize(current)
+                    normalize()
                     onSubmit()
                 }
                 .onChange(of: isFocused) { _, focused in
-                    if !focused { normalize(current) }
+                    if !focused { normalize() }
                 }
                 .frame(minHeight: metrics.targetMin)
                 .accessibilityHint(error ?? "")
@@ -173,9 +183,15 @@ private struct EmailInput: View {
                 suggestionRow(suggestion)
             }
         }
-        .task(id: current) {
+        .onChange(of: value, initial: true) { _, newValue in
+            if text != answerText(newValue) { text = answerText(newValue) }
+        }
+        .onChange(of: text) { _, newText in
+            if newText != answerText(value) { set(newText) }
+        }
+        .task(id: text) {
             try? await Task.sleep(for: Self.suggestDelay)
-            if !Task.isCancelled { settledText = current }
+            if !Task.isCancelled { settledText = text }
         }
     }
 
@@ -183,9 +199,12 @@ private struct EmailInput: View {
         onChange(next.isEmpty ? nil : .text(value: next))
     }
 
-    private func normalize(_ current: String) {
-        let normalized = normalizeEmail(value: current)
-        if normalized != current { set(normalized) }
+    private func normalize() {
+        let normalized = normalizeEmail(value: text)
+        if normalized != text {
+            text = normalized
+            set(normalized)
+        }
         settledText = normalized
     }
 
@@ -193,7 +212,7 @@ private struct EmailInput: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: metrics.gap / 2) {
                 ForEach(completions, id: \.domain) { completion in
-                    Button("@\(completion.domain)") { set(completion.email) }
+                    Button("@\(completion.domain)") { text = completion.email }
                         .buttonStyle(.bordered)
                         .frame(minHeight: metrics.targetMin)
                         .accessibilityLabel("Complete with \(completion.domain)")
@@ -207,7 +226,7 @@ private struct EmailInput: View {
     private func suggestionRow(_ suggestion: EmailCompletion) -> some View {
         HStack {
             Text("Did you mean \(suggestion.email)?")
-            Button("Use \(suggestion.domain)") { set(suggestion.email) }
+            Button("Use \(suggestion.domain)") { text = suggestion.email }
                 .buttonStyle(.bordered)
                 .frame(minHeight: metrics.targetMin)
         }
@@ -283,6 +302,7 @@ private struct ToggleControl: View {
     let presentation: Presentation
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
+    @State private var isOn = false
 
     var body: some View {
         if presentation == .step {
@@ -293,11 +313,15 @@ private struct ToggleControl: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(field.label)
         } else {
-            Toggle(field.label, isOn: Binding(
-                get: { value == AnswerValue.bool(value: true) },
-                set: { onChange(.bool(value: $0)) }
-            ))
-            .frame(minHeight: metrics.targetMin)
+            Toggle(field.label, isOn: $isOn)
+                .onChange(of: value, initial: true) { _, newValue in
+                    let on = newValue == AnswerValue.bool(value: true)
+                    if isOn != on { isOn = on }
+                }
+                .onChange(of: isOn) { _, on in
+                    if on != (value == AnswerValue.bool(value: true)) { onChange(.bool(value: on)) }
+                }
+                .frame(minHeight: metrics.targetMin)
         }
     }
 }
@@ -314,6 +338,7 @@ private struct SliderControl: View {
     let presentation: Presentation
     let onChange: (AnswerValue?) -> Void
     @Environment(\.kineticMetrics) private var metrics
+    @State private var position = 0.0
 
     private var answered: Bool {
         if case .number? = value { return true }
@@ -336,12 +361,15 @@ private struct SliderControl: View {
             Text(valueLabel + (answered ? "" : presentation == .step ? " — press Next to confirm" : " (not set yet)"))
                 .font(.title3)
                 .accessibilityHidden(true)  // the slider itself speaks the value
-            Slider(
-                value: Binding(get: { shown }, set: { onChange(.number(value: $0)) }),
-                in: range,
-                step: step
-            )
+            Slider(value: $position, in: range, step: step)
             .frame(minHeight: metrics.targetMin)
+            .onChange(of: shown, initial: true) { _, newShown in
+                if position != newShown { position = newShown }
+            }
+            .onChange(of: position) { _, newPosition in
+                // Only a real move is stored; syncing the displayed default must not answer the question.
+                if newPosition != shown { onChange(.number(value: newPosition)) }
+            }
             .accessibilityLabel(field.label)
             .accessibilityValue(answered ? valueLabel : "\(valueLabel), not set yet")
         }
