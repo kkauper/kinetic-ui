@@ -214,7 +214,7 @@ export function Landing() {
             system&apos;s activity classifier on iOS and Android.
           </li>
           <li>
-            <strong>What it answers.</strong> Still or moving. It switches to moving after about 5 seconds of walking and
+            <strong>What it answers.</strong> Still or moving. It switches to moving after about 3 seconds of walking and
             back after about 10 seconds of not walking, so a pause at a crossing does not flip the screen.
           </li>
           <li>

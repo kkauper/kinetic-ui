@@ -21,6 +21,110 @@ body {
   --slider-thumb-size: var(--k-slider-thumb);
 }
 
+/* Motion tokens: the mode-change transition (full form <-> one question at a time). */
+:root {
+  --k-motion-duration: 350ms;
+  --k-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Hidden but focusable input that opens the iOS keyboard inside a tap (see ui/KeyboardProxy.tsx). */
+.k-kbd-proxy {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  font-size: 16px;
+  border: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+/*
+ * Mode-change view transition. The active field morphs (shared element, name set from
+ * ui/viewTransition.ts on ONE element at a time); the rest crossfades; the thumb bar and
+ * the stepper header slide in from below.
+ */
+.k-thumb-bar {
+  view-transition-name: k-thumb-bar;
+}
+.k-stepper__header {
+  view-transition-name: k-step-head;
+}
+
+::view-transition-group(*) {
+  animation-duration: var(--k-motion-duration);
+  animation-timing-function: var(--k-motion-ease);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--k-motion-duration);
+  animation-timing-function: var(--k-motion-ease);
+}
+::view-transition-old(root) {
+  animation-name: k-vt-out;
+}
+::view-transition-new(root) {
+  animation-name: k-vt-in;
+}
+::view-transition-old(k-thumb-bar),
+::view-transition-old(k-step-head) {
+  animation: k-vt-slide-out var(--k-motion-duration) var(--k-motion-ease) both;
+}
+::view-transition-new(k-thumb-bar),
+::view-transition-new(k-step-head) {
+  animation: k-vt-slide-in var(--k-motion-duration) var(--k-motion-ease) both;
+}
+@keyframes k-vt-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@keyframes k-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes k-vt-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@keyframes k-vt-slide-out {
+  to {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+/* Reduced motion: nothing moves, a short opacity crossfade only. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*) {
+    animation: none;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-name: k-vt-fade !important;
+    animation-duration: 150ms !important;
+    animation-timing-function: linear !important;
+  }
+  ::view-transition-old(*) {
+    animation-direction: reverse !important;
+  }
+  @keyframes k-vt-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 /* Page shell */
 html {
   color-scheme: dark;

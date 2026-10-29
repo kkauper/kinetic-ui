@@ -84,7 +84,7 @@ export function DemoControls() {
   let status = '';
   if (starting) status = 'Waiting for motion data…';
   else if (sensorRunning) {
-    status = `Walking mode on — ${snapshot.detected === 'moving' ? 'moving' : 'still'}. Switches after about 5 s.`;
+    status = `Walking mode on — ${snapshot.detected === 'moving' ? 'moving' : 'still'}. Switches after about 3 s.`;
   }
 
   return (
