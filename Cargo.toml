@@ -1,0 +1,24 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+version = "0.1.0"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Pragmatic exceptions: these fire on idiomatic code in a small, documented crate.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+float_cmp = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+doc_markdown = "allow"
+similar_names = "allow"
+many_single_char_names = "allow" # t, x, y, z are the domain vocabulary
+too_many_lines = "allow"

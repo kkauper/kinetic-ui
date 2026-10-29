@@ -1,0 +1,13 @@
+[package]
+name = "kinetic-core"
+description = "Deterministic motion-adaptive UI model: cadence estimator, hysteresis, Show-full policy and a step-by-step form model."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true

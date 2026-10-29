@@ -167,6 +167,14 @@
       ]
     },
     {
+      "name": "stored answers with null values keep the other answers",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com", "firstName": null}, "deferred": []},
+      "actions": [
+        {"do": "jumpToFirstUnanswered", "expect": {"currentStep": 1}}
+      ]
+    },
+    {
       "name": "drops stored answers and deferred ids for unknown fields",
       "schema": "signup",
       "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com", "legacy": "x"}, "deferred": ["legacy"]},
