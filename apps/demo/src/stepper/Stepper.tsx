@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { Badge, Button, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
+import { PinnedReadout } from '../demo-controls/DebugOverlay';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { focusField, focusStepperControl } from '../fields/focusField';
 import { normalizeEmailAnswers } from '../fields/normalize';
@@ -114,6 +115,8 @@ export function Stepper() {
               </button>
             </Badge>
           ) : null}
+          {/* In the header row of the bottom group: no extra height, never over the input or the bar. */}
+          <PinnedReadout placement="stepper" />
         </div>
 
         <div className="k-stepper__body">

@@ -1,5 +1,6 @@
 import { Button } from '@radix-ui/themes';
 import { useMotion, useShowFull } from '@kinetic-ui/react';
+import { PinnedReadout } from '../demo-controls/DebugOverlay';
 import { DemoControls } from '../demo-controls/DemoControls';
 import { Notice } from '../demo-controls/Notice';
 import { FullForm } from '../FullForm';
@@ -42,6 +43,7 @@ export function Demo() {
         />
       ) : null}
       <div className="k-main">{mode === 'moving' ? <Stepper /> : <FullForm />}</div>
+      {mode === 'moving' ? null : <PinnedReadout placement="page" />}
     </main>
   );
 }

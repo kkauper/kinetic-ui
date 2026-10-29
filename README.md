@@ -224,7 +224,7 @@ cargo build -p kinetic-ffi --release
 cd native/android && ./gradlew :bindings-test:test
 ```
 
-Motion sensors need HTTPS, so use the live demo to try walking detection on a phone. Locally, the "Simulate walking" tag and the simulated step source in the debug tools work without sensors.
+Motion sensors need HTTPS, so use the live demo to try walking detection on a phone. Locally, the "Simulate walking" tag and the simulated step source in the debug sheet work without sensors.
 
 ## Try it on a phone
 
@@ -232,11 +232,11 @@ Motion sensors need HTTPS, so use the live demo to try walking detection on a ph
 2. iPhone (Safari): tap "Walking mode", allow "Motion & Orientation Access", then walk at a normal pace for 5 to 8 s. The stepper appears. Stop for about 10 s and the full form returns.
    If you tapped "Don't allow", iOS usually remembers it for the site. Close the tab and reopen it, or clear the site's data (usually Settings, Apps, Safari, Advanced, Website Data). Menus move between iOS versions.
 3. Android (Chrome): tap "Walking mode" (a permission prompt may or may not appear, depending on the Chrome version), then walk.
-4. Without a phone: the "Simulate walking" tag flips the mode by hand, and the debug tools include a simulated step source with a cadence slider.
+4. Without a phone: the "Simulate walking" tag flips the mode by hand, and the debug sheet includes a simulated step source with a cadence slider.
 
 ### Tuning
 
-Open the debug overlay with the "Debug" tag in the demo controls, or add `?debug` to the URL. It shows the state, whether it is detected or forced, the source, the cadence against the walking band, time in state and any pending transition. The walking band (min and max cadence) can be changed live under "Debug tools": anything below the minimum or above the maximum counts as not walking and shows the full form.
+Tap the "Debug" tag in the demo controls to open the debug sheet (or add `?debug` to the URL to show the status pill on load). The sheet shows the state, whether it is detected or forced, the source, the cadence against the walking band, time in state and any pending transition, followed by the tools. The walking band (min and max cadence) can be changed live: anything below the minimum or above the maximum counts as not walking and shows the full form. "Keep readout on screen" leaves a one-line status pill on the page after the sheet is closed; tap it to reopen the sheet.
 
 The defaults live in `packages/core/src/motion/config.ts`:
 

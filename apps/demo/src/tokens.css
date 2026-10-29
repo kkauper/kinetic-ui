@@ -204,22 +204,6 @@ body {
   display: none;
 }
 
-.k-debug-panel {
-  margin-top: 8px;
-  padding: 4px 12px;
-  border: 1px solid var(--gray-a6);
-  border-radius: var(--radius-4);
-  background: var(--gray-2);
-}
-
-.k-debug-tools__body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: var(--font-size-1);
-}
-
 .k-debug-tools__bands {
   display: flex;
   gap: 12px;
@@ -235,13 +219,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.k-debug-tools summary {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
 }
 
 /* Notifications */
@@ -496,44 +473,6 @@ body {
   }
 }
 
-/* Debug overlay: read-only, bottom-left just above the thumb bar, never blocks taps. */
-.k-debug {
-  position: fixed;
-  left: 8px;
-  bottom: 104px;
-  z-index: 10;
-  max-width: 200px;
-  margin: 0;
-  padding: 4px 6px;
-  font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace;
-  color: var(--gray-12);
-  background: var(--color-panel-translucent);
-  border: 1px solid var(--gray-a6);
-  border-radius: 4px;
-  opacity: 0.92;
-  pointer-events: none;
-}
-
-.k-debug__list {
-  margin: 0;
-}
-
-.k-debug__row {
-  display: flex;
-  gap: 6px;
-}
-
-.k-debug__row dt {
-  flex: 0 0 6em;
-  color: var(--gray-11);
-}
-
-.k-debug__row dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 /* Email domain chips: compact so the three fit on one row at phone width. */
 .k-chips {
   display: flex;
@@ -775,4 +714,167 @@ body {
 .k-pill-link,
 .k-icon-button {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Status pill: one opaque line, in the page flow so it never covers content. */
+.k-pillrow {
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.k-pillrow--page {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 5;
+  padding: 12px 0 0;
+  margin-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+.k-pillrow--stepper {
+  margin-left: auto;
+}
+
+.k-readout-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--gray-7);
+  border-radius: 9999px;
+  background: var(--gray-3);
+  color: var(--gray-12);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.k-readout-pill__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Debug readout rows (inside the sheet) */
+.k-debug__list {
+  margin: 0;
+  font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace;
+}
+
+.k-debug__row {
+  display: flex;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.k-debug__row dt {
+  flex: 0 0 7em;
+  color: var(--gray-11);
+}
+
+.k-debug__row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--gray-12);
+}
+
+/* Debug bottom sheet. Radix Themes positions DialogContent as a centered card; this turns it into a sheet. */
+.rt-DialogContent.k-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85dvh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  background: var(--gray-2);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes k-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rt-DialogContent.k-sheet[data-state='open'] {
+    animation: k-sheet-in 240ms ease-out;
+  }
+}
+
+.k-sheet__top {
+  flex: none;
+  touch-action: none;
+  cursor: grab;
+  padding: 0 8px 0 20px;
+}
+
+.k-sheet__handle {
+  width: 44px;
+  height: 5px;
+  margin: 10px auto 2px;
+  border-radius: 9999px;
+  background: var(--gray-8);
+}
+
+.k-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+}
+
+.k-sheet__title {
+  margin: 0;
+  font-size: var(--font-size-5);
+}
+
+.k-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 20px calc(24px + env(safe-area-inset-bottom));
+}
+
+.k-sheet__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.k-sheet__heading {
+  margin: 0;
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.k-sheet__switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
 }

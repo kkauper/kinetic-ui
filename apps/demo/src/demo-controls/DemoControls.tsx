@@ -5,8 +5,8 @@ import { useMotion } from '@kinetic-ui/react';
 import { TagState } from '../layout/icons';
 import { focusStepperControl } from '../fields/focusField';
 import { accelerometerSource, formModel, manualSource, motionStore } from '../stores';
-import { DebugOverlay, readDebugPreference, writeDebugPreference } from './DebugOverlay';
-import { DebugTools } from './DebugTools';
+import { DebugSheet } from './DebugSheet';
+import { debugUi, useDebugUi } from './debugUi';
 import { Notice } from './Notice';
 import { noticeForError } from './notices';
 import { switchSource } from './switchSource';
@@ -48,7 +48,7 @@ export function DemoControls() {
   const sensorRunning = sensorActive && snapshot.running;
   const starting = sensorActive && !snapshot.running && !snapshot.error;
   const manualWalking = !sensorActive && snapshot.source === manualSource.id && manualSource.get() === 'moving';
-  const [debug, setDebug] = useState(readDebugPreference);
+  const { isOpen: debugOpen } = useDebugUi();
   const walkingTag = useRef<HTMLButtonElement>(null);
 
   // A dismissed notice stays dismissed until the error text changes or clears.
@@ -102,15 +102,16 @@ export function DemoControls() {
         <Tag buttonRef={walkingTag} pressed={sensorRunning} onClick={toggleSensor} describedBy="walking-mode-help">
           {sensorRunning ? 'Walking mode on' : 'Walking mode'}
         </Tag>
-        <Tag
-          pressed={debug}
-          onClick={() => {
-            setDebug(!debug);
-            writeDebugPreference(!debug);
-          }}
+        {/* Opens the debug sheet: a plain button (not a toggle), so no aria-pressed. */}
+        <button
+          type="button"
+          className="k-tag k-tag--plain"
+          aria-haspopup="dialog"
+          aria-expanded={debugOpen}
+          onClick={(event) => debugUi.open(event.currentTarget)}
         >
           Debug
-        </Tag>
+        </button>
       </div>
       <span id="walking-mode-help" className="k-sr-only">
         Uses your phone&apos;s motion sensor to detect walking.
@@ -135,12 +136,7 @@ export function DemoControls() {
           {notice.body}
         </Notice>
       ) : null}
-      {debug ? (
-        <div className="k-debug-panel">
-          <DebugTools />
-        </div>
-      ) : null}
-      {debug ? <DebugOverlay /> : null}
+      <DebugSheet />
     </section>
   );
 }

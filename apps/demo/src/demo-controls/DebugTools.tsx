@@ -25,8 +25,9 @@ function BandInput({ band, label }: { band: Band; label: string }) {
       <TextField.Root
         id={id}
         type="number"
+        inputMode="decimal"
         step={0.1}
-        size="1"
+        size="3"
         value={text}
         color={invalid ? 'red' : undefined}
         aria-invalid={invalid}
@@ -40,7 +41,7 @@ function BandInput({ band, label }: { band: Band; label: string }) {
   );
 }
 
-/** Desktop tuning tools, collapsed by default. Tooling, so fixed small Radix sizes. */
+/** Desktop tuning tools, all directly visible inside the debug sheet. */
 export function DebugTools() {
   const [cadence, setCadence] = useState(1.8);
   const sliderRef = useRef<HTMLSpanElement>(null);
@@ -50,13 +51,13 @@ export function DebugTools() {
   });
 
   return (
-    <details className="k-debug-tools">
-      <summary>Debug tools</summary>
-      <div className="k-debug-tools__body">
+    <>
+      <section className="k-sheet__section" aria-labelledby="debug-sim-heading">
+        <h3 id="debug-sim-heading" className="k-sheet__heading">Simulator</h3>
         <div id="debug-cadence-label">Simulated steps: {cadence.toFixed(1)} per second</div>
         <Slider
           ref={sliderRef}
-          size="1"
+          size="2"
           min={0}
           max={3}
           step={0.1}
@@ -66,14 +67,10 @@ export function DebugTools() {
             simulatorSource.setCadence(next!);
           }}
         />
-        <div className="k-debug-tools__bands">
-          <BandInput band="minCadence" label="Min cadence" />
-          <BandInput band="maxCadence" label="Max cadence" />
-        </div>
-        <div className="k-debug-tools__buttons">
+        <div>
           <Button
             type="button"
-            size="1"
+            size="3"
             variant="soft"
             onClick={() => {
               simulatorSource.setCadence(cadence);
@@ -82,14 +79,26 @@ export function DebugTools() {
           >
             Use simulator
           </Button>
-          <Button type="button" size="1" variant="soft" color="gray" onClick={() => showFull.resetSession()}>
+        </div>
+      </section>
+      <section className="k-sheet__section" aria-labelledby="debug-band-heading">
+        <h3 id="debug-band-heading" className="k-sheet__heading">Walking band (steps per second)</h3>
+        <div className="k-debug-tools__bands">
+          <BandInput band="minCadence" label="Min cadence" />
+          <BandInput band="maxCadence" label="Max cadence" />
+        </div>
+      </section>
+      <section className="k-sheet__section" aria-labelledby="debug-reset-heading">
+        <h3 id="debug-reset-heading" className="k-sheet__heading">Reset</h3>
+        <div className="k-debug-tools__buttons">
+          <Button type="button" size="3" variant="soft" color="gray" onClick={() => showFull.resetSession()}>
             Reset Show-full session
           </Button>
-          <Button type="button" size="1" variant="soft" color="red" onClick={() => formModel.reset()}>
+          <Button type="button" size="3" variant="soft" color="red" onClick={() => formModel.reset()}>
             Clear saved answers
           </Button>
         </div>
-      </div>
-    </details>
+      </section>
+    </>
   );
 }
