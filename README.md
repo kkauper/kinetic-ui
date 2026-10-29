@@ -363,7 +363,7 @@ DECISIONS.md                   design record
 
 - The step detector is demo-grade. It can misread a phone in a swinging bag, running, stairs, vehicles and slow walking below 1.5 steps/s.
 - Browsers stop motion events in background tabs, so the UI decays to the full form.
-- The iOS and Android demos compile and their non-UI code is tested, but they have not been tried on physical devices yet.
+- The iOS and Android demos have not yet been tried on physical devices (Core Motion/Activity Recognition delivery, VoiceOver/TalkBack, real keyboards). The iOS demo is built in CI; the Android demo's compile, lint and Robolectric UI test run locally.
 - No backend or auth; "Create account" only validates.
 
 More in [DECISIONS.md](DECISIONS.md#known-limits).
