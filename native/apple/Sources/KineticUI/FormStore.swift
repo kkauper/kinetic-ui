@@ -19,7 +19,7 @@ public final class FormStore {
     @ObservationIgnored private let model: FormModel
 
     /// Builds the store from any schema JSON (see `packages/spec/schemas`).
-    /// Throws `KineticError.InvalidSchema` with the core's message.
+    /// Throws `KineticError.InvalidSchema(reason:)` with the core's message.
     public init(schemaJSON: String, storage: FormStorage? = UserDefaultsFormStorage()) throws {
         let model = try FormModel(schemaJson: schemaJSON, storage: storage)
         self.model = model

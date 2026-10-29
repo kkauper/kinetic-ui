@@ -26,5 +26,11 @@ for language in swift kotlin; do
     generate --no-format --language "$language" --out-dir "$out" "$lib"
 done
 
+# The Swift package keeps committed copies so it reads without a build. This script is the
+# single place that syncs generated files into it (the Android side uses native/generated
+# source dirs directly, so nothing to copy there).
+cp native/generated/swift/kinetic.swift native/apple/Sources/KineticBindings/kinetic.swift
+cp packages/spec/generated/KineticTokens.swift native/apple/Sources/KineticUI/KineticTokens.swift
+
 echo "Generated bindings:"
 find native/generated -type f ! -name README.md -exec wc -c {} +

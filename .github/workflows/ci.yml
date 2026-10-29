@@ -1,5 +1,6 @@
 # Quality gate only. Cloudflare builds and deploys the demo (see README, Deploy).
-# `check` covers the TypeScript packages, `rust` the Rust core and the UniFFI layer.
+# `check` covers the TypeScript packages, `rust` the Rust core and the UniFFI layer,
+# `kotlin-bindings` the generated Kotlin against the real library.
 name: CI
 
 on:
@@ -49,3 +50,31 @@ jobs:
         run: cargo clippy -p kinetic-ffi --features cli --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Generated bindings are up to date
+        run: |
+          scripts/generate-bindings.sh
+          git diff --exit-code -- native/ packages/spec/generated/
+
+  # Proves the generated Kotlin bindings end to end: JUnit runs against the host build of the Rust
+  # library, with no Android SDK or emulator (the Android modules are skipped without an SDK).
+  kotlin-bindings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Build the host library
+        run: cargo build -p kinetic-ffi --release
+      - name: Test Kotlin bindings
+        working-directory: native/android
+        run: ./gradlew :bindings-test:test

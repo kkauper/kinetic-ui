@@ -2984,12 +2984,13 @@ enum KineticError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     
     
     /**
-     * The form schema JSON was rejected; `message` says why.
+     * The form schema JSON was rejected; `reason` says why.
      */
     case InvalidSchema(
         /**
          * Human-readable reason, the same text the TypeScript core throws.
-         */message: String
+         * Not called `message`: that clashes with `Throwable.message` in the generated Kotlin.
+         */reason: String
     )
     /**
      * An action named a field the schema does not have.
@@ -3029,7 +3030,7 @@ public struct FfiConverterTypeKineticError: FfiConverterRustBuffer {
 
         
         case 1: return .InvalidSchema(
-            message: try FfiConverterString.read(from: &buf)
+            reason: try FfiConverterString.read(from: &buf)
             )
         case 2: return .UnknownField(
             id: try FfiConverterString.read(from: &buf)
@@ -3046,9 +3047,9 @@ public struct FfiConverterTypeKineticError: FfiConverterRustBuffer {
 
         
         
-        case let .InvalidSchema(message):
+        case let .InvalidSchema(reason):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(reason, into: &buf)
             
         
         case let .UnknownField(id):

@@ -4427,17 +4427,18 @@ public object FfiConverterTypeFieldKind : FfiConverterRustBuffer<FieldKind>{
 sealed class KineticException: kotlin.Exception() {
     
     /**
-     * The form schema JSON was rejected; `message` says why.
+     * The form schema JSON was rejected; `reason` says why.
      */
     class InvalidSchema(
         
         /**
          * Human-readable reason, the same text the TypeScript core throws.
+         * Not called `message`: that clashes with `Throwable.message` in the generated Kotlin.
          */
-        val `message`: kotlin.String
+        val `reason`: kotlin.String
         ) : KineticException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "reason=${ `reason` }"
     }
     
     /**
@@ -4488,7 +4489,7 @@ public object FfiConverterTypeKineticError : FfiConverterRustBuffer<KineticExcep
             is KineticException.InvalidSchema -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`reason`)
             )
             is KineticException.UnknownField -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
@@ -4502,7 +4503,7 @@ public object FfiConverterTypeKineticError : FfiConverterRustBuffer<KineticExcep
         when(value) {
             is KineticException.InvalidSchema -> {
                 buf.putInt(1)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`reason`, buf)
                 Unit
             }
             is KineticException.UnknownField -> {

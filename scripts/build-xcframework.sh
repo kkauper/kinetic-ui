@@ -12,7 +12,7 @@
 #
 # Produces (git-ignored): native/apple/KineticFFI.xcframework
 # Updates (committed):    native/apple/Sources/KineticBindings/kinetic.swift,
-#                         native/apple/Sources/KineticUI/KineticTokens.swift (copy of packages/spec/generated)
+#                         native/apple/Sources/KineticUI/KineticTokens.swift (synced by generate-bindings.sh)
 # Run time: about 3-6 minutes cold (five release builds), seconds when cached.
 set -euo pipefail
 
@@ -47,17 +47,10 @@ cp "$(lib aarch64-apple-ios)" "$work/ios/libkinetic_ffi.a"
 lipo -create "$(lib aarch64-apple-ios-sim)" "$(lib x86_64-apple-ios)" -output "$work/sim/libkinetic_ffi.a"
 lipo -create "$(lib aarch64-apple-darwin)" "$(lib x86_64-apple-darwin)" -output "$work/macos/libkinetic_ffi.a"
 
-# 3. Swift bindings from the host build (scripts/generate-bindings.sh also
-#    regenerates Kotlin; here only Swift is needed).
-host_lib="target/release/libkinetic_ffi.dylib"
-cargo build -p kinetic-ffi --release --features cli
-gen="$work/swift"
-rm -rf "$gen"
-cargo run --release --features cli -p kinetic-ffi --bin uniffi-bindgen -- \
-  generate --no-format --language swift --out-dir "$gen" "$host_lib"
-cp "$gen/kinetic.swift" "$apple/Sources/KineticBindings/kinetic.swift"
-# Design tokens come from packages/spec (npm run tokens there); KineticMetrics.swift builds on them.
-cp packages/spec/generated/KineticTokens.swift "$apple/Sources/KineticUI/KineticTokens.swift"
+# 3. Swift bindings from the host build. generate-bindings.sh also syncs
+#    kinetic.swift and KineticTokens.swift into native/apple/Sources.
+scripts/generate-bindings.sh
+gen="native/generated/swift"
 
 # 4. Headers: a static-library XCFramework carries a plain module map (not a
 #    `framework module`). The generated one lists `use "Darwin"`, which is not

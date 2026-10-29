@@ -37,10 +37,11 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// Errors surfaced to Swift and Kotlin.
 #[derive(Debug, uniffi::Error)]
 pub enum KineticError {
-    /// The form schema JSON was rejected; `message` says why.
+    /// The form schema JSON was rejected; `reason` says why.
     InvalidSchema {
         /// Human-readable reason, the same text the TypeScript core throws.
-        message: String,
+        /// Not called `message`: that clashes with `Throwable.message` in the generated Kotlin.
+        reason: String,
     },
     /// An action named a field the schema does not have.
     UnknownField {
@@ -52,7 +53,7 @@ pub enum KineticError {
 impl fmt::Display for KineticError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            KineticError::InvalidSchema { message } => f.write_str(message),
+            KineticError::InvalidSchema { reason } => f.write_str(reason),
             KineticError::UnknownField { id } => write!(f, "Unknown field \"{id}\"."),
         }
     }
@@ -62,7 +63,7 @@ impl std::error::Error for KineticError {}
 
 impl From<core_form::SchemaError> for KineticError {
     fn from(e: core_form::SchemaError) -> Self {
-        KineticError::InvalidSchema { message: e.to_string() }
+        KineticError::InvalidSchema { reason: e.to_string() }
     }
 }
 

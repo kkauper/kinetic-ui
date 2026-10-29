@@ -9,3 +9,7 @@ native/apple/KineticFFI.xcframework/
 native/apple/.build/
 native/apple/Demo/*.xcodeproj
 native/apple/Demo/KineticDemo/Info.plist
+native/android/**/build/
+native/android/.gradle/
+native/android/local.properties
+native/android/kinetic/src/main/jniLibs/
