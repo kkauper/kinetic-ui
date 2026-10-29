@@ -1,6 +1,7 @@
 # Builds the release assets and, for a version tag, publishes them as a GitHub release.
 #
 #   git tag v0.1.0 && git push origin v0.1.0     publishes a release
+#   Releases > Draft a new release > Publish     same, from github.com (the run fills it in)
 #   Actions > Release > Run workflow             dry run: builds everything, publishes nothing
 #
 # The version has one source: "version" in the root package.json. The `verify` job fails the
@@ -218,14 +219,21 @@ jobs:
             echo '```'
           } >> notes.md
           cat notes.md
-      - name: Create the release
+      # A release created by hand on github.com (which also creates the tag) is filled in
+      # rather than failing: title and notes are replaced and the assets uploaded.
+      - name: Create or update the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Kinetic UI $GITHUB_REF_NAME" \
-            --notes-file notes.md \
-            assets/KineticFFI.xcframework.zip \
-            assets/KineticFFI.xcframework.zip.checksum \
-            assets/kinetic-android-*.aar \
+          files=(
+            assets/KineticFFI.xcframework.zip
+            assets/KineticFFI.xcframework.zip.checksum
+            assets/kinetic-android-*.aar
             assets/kinetic-ui-demo-web.zip
+          )
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "Kinetic UI $GITHUB_REF_NAME" --notes-file notes.md
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --title "Kinetic UI $GITHUB_REF_NAME" --notes-file notes.md "${files[@]}"
+          fi
