@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tabs } from '@radix-ui/themes';
 import { Pill } from '../ui/Pill';
+import { copyText } from '../ui/copyText';
 import { REPO_URL } from '../layout/Header';
 import { usePageFocus } from '../route/usePageFocus';
 
@@ -63,25 +64,41 @@ KineticMotionProvider(store) {
 ];
 
 function CodeBlock({ snippet, onCopied }: { snippet: Snippet; onCopied: (message: string) => void }) {
+  const codeRef = useRef<HTMLElement>(null);
+  const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(resetTimer.current), []);
+
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(snippet.code);
+    const ok = await copyText(snippet.code);
+    if (ok) {
       onCopied(`Copied ${snippet.label} snippet`);
-    } catch {
-      onCopied('Could not copy. Select the code and copy it by hand.');
+      setCopied(true);
+      clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => setCopied(false), 1500);
+    } else {
+      onCopied('Could not copy. The code is selected: copy it by hand.');
+      // Select the code so the user can copy it right away.
+      if (codeRef.current) window.getSelection()?.selectAllChildren(codeRef.current);
     }
   }
   return (
     <div className="k-code">
       <div className="k-code__bar">
         <span className="k-code__lang">{snippet.language}</span>
+        {/* The visible text stays "Copy" (it is part of the accessible name, WCAG 2.5.3); the check icon confirms. */}
         <Pill type="button" size="1" variant="soft" color="gray" className="k-copy" aria-label={`Copy ${snippet.label} snippet`} onClick={copy}>
+          {copied ? (
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8.5l3.2 3.2L13 4.5" />
+            </svg>
+          ) : null}
           Copy
         </Pill>
       </div>
       {/* Scrollable region: focusable so keyboard users can scroll it with the arrow keys. */}
       <pre className="k-code__pre" tabIndex={0} aria-label={`${snippet.label} code example`}>
-        <code>{snippet.code}</code>
+        <code ref={codeRef}>{snippet.code}</code>
       </pre>
     </div>
   );
