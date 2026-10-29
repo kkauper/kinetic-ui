@@ -1,5 +1,5 @@
 import { defineSchema } from './schema';
-import signupJson from './signup.schema.json';
+import signupJson from '@kinetic-ui/spec/schemas/signup.schema.json';
 
 export * from './schema';
 export * from './validation';

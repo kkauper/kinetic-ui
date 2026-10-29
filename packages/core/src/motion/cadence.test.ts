@@ -29,9 +29,16 @@ describe('createCadenceEstimator', () => {
     expect(estimator.cadence(end)).toBe(0);
   });
 
-  it('reports shaking (4 steps/s) as out of band', () => {
-    const { estimator, end } = estimate(4, 10000, 100);
-    expect(estimator.cadence(end)).toBeGreaterThan(config.maxCadence);
+  it.each([50, 60, 100])('reports shaking (4 steps/s) as out of band at %s Hz', (rate) => {
+    const { estimator, end } = estimate(4, 10000, rate);
+    expect(estimator.cadence(end)).toBeGreaterThanOrEqual(3.2);
+  });
+
+  it.each([50, 60])('measures 1.4, 1.8 and 2.4 steps/s at %s Hz', (rate) => {
+    for (const cadence of [1.4, 1.8, 2.4]) {
+      const { estimator, end } = estimate(cadence, 10000, rate);
+      expect(Math.abs(estimator.cadence(end) - cadence)).toBeLessThanOrEqual(0.15);
+    }
   });
 
   it('drops to 0 shortly after samples stop', () => {

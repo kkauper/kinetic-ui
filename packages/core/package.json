@@ -9,5 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@kinetic-ui/spec": "*"
   }
 }

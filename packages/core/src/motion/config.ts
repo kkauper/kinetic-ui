@@ -1,9 +1,18 @@
+import type { ActivityKind } from './types';
+
 // Tune these on a real phone with the debug overlay.
 
 export interface MotionConfig {
   /** Cadence band (steps per second) treated as walking. */
   minCadence: number;
   maxCadence: number;
+  /**
+   * Activity classes (from OS classifiers) treated as walking. Running is left
+   * out like in the cadence band: the full form is safer while running or in a vehicle.
+   */
+  movingActivities: ActivityKind[];
+  /** Activity samples below this confidence (0..1) do not count as walking. */
+  minActivityConfidence: number;
   /** Sustained walking needed before switching to moving. */
   enterMovingAfterMs: number;
   /** Sustained non-walking needed before switching back to still. */
@@ -14,8 +23,12 @@ export interface MotionConfig {
   minStepsForCadence: number;
   /** Acceleration above the running baseline (m/s^2) that counts as a step peak. */
   stepThreshold: number;
-  /** Refractory period between steps (caps detectable cadence at ~1000/ms). */
+  /** Refractory period between steps (caps detectable cadence at 1000/ms steps/s). Must sit clearly below the period of the fastest rhythm to measure: at 250 a 4 steps/s shake was halved by sample jitter. */
   minStepIntervalMs: number;
+  /** Time constant of the low-pass on the step signal; sample-rate independent (about 55 ms matches the old 50 Hz coefficient 0.3). */
+  signalSmoothingMs: number;
+  /** Time constant of the slow average that removes gravity (about 1 s). */
+  baselineMs: number;
   /** How often the store re-evaluates time-based transitions while running. */
   tickIntervalMs: number;
 }
@@ -23,11 +36,15 @@ export interface MotionConfig {
 export const DEFAULT_MOTION_CONFIG: MotionConfig = {
   minCadence: 1.5,
   maxCadence: 2.5,
+  movingActivities: ['walking'],
+  minActivityConfidence: 0.5,
   enterMovingAfterMs: 5000,
   exitMovingAfterMs: 10000,
   cadenceWindowMs: 4000,
   minStepsForCadence: 4,
   stepThreshold: 1.2,
-  minStepIntervalMs: 250,
+  minStepIntervalMs: 200,
+  signalSmoothingMs: 55,
+  baselineMs: 1000,
   tickIntervalMs: 500,
 };

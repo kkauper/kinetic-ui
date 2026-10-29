@@ -1,0 +1,36 @@
+{
+  "$comment": "Email helpers. normalize: remove all whitespace, lowercase only the domain. completions: emailDomainCompletions with the default quick domains (gmail.com, icloud.com, outlook.com); output lists completed emails in order. suggestions: suggestEmailDomain with the default common domains; output is the suggested email or null.",
+  "version": 1,
+  "normalize": [
+    {"input": " Ada@Gmail.COM ", "output": "Ada@gmail.com"},
+    {"input": "ada@ gmail.com", "output": "ada@gmail.com"},
+    {"input": "Ada", "output": "Ada"},
+    {"input": "", "output": ""},
+    {"input": "a b@Example.COM", "output": "ab@example.com"},
+    {"input": "Ada@Foo@BAR.com", "output": "Ada@Foo@bar.com"},
+    {"input": "\tAda\n@GMAIL.com", "output": "Ada@gmail.com"}
+  ],
+  "completions": [
+    {"input": "ada", "output": ["ada@gmail.com", "ada@icloud.com", "ada@outlook.com"]},
+    {"input": "ada@", "output": ["ada@gmail.com", "ada@icloud.com", "ada@outlook.com"]},
+    {"input": "ada@gm", "output": ["ada@gmail.com"]},
+    {"input": "ada@GM", "output": ["ada@gmail.com"]},
+    {"input": "ada@gmail.com", "output": []},
+    {"input": "ada@yahoo", "output": []},
+    {"input": "", "output": []},
+    {"input": "@gm", "output": []},
+    {"input": " ada @ ic", "output": ["ada@icloud.com"]}
+  ],
+  "suggestions": [
+    {"input": "bob@gmial.com", "output": "bob@gmail.com"},
+    {"input": "bob@gmail.con", "output": "bob@gmail.com"},
+    {"input": "bob@outlok.com", "output": "bob@outlook.com"},
+    {"input": "bob@icloud.co", "output": "bob@icloud.com"},
+    {"input": "Bob@GMIAL.com", "output": "Bob@gmail.com"},
+    {"input": "bob@gmail.com", "output": null},
+    {"input": "bob@company.io", "output": null},
+    {"input": "bob@gmial", "output": null},
+    {"input": "bob", "output": null},
+    {"input": "@gmial.com", "output": null}
+  ]
+}

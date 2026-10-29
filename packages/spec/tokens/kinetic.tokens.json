@@ -1,0 +1,21 @@
+{
+  "$description": "Kinetic UI design tokens. 'still' is the default UI, 'moving' is the simplified UI while the user walks. Single source for CSS, Swift and Kotlin (npm run tokens).",
+  "still": {
+    "$type": "dimension",
+    "targetMin": { "$value": "44px", "$description": "Minimum touch target size." },
+    "gap": { "$value": "16px", "$description": "Spacing between blocks." },
+    "fieldGap": { "$value": "24px", "$description": "Spacing between form fields." },
+    "fontQuestion": { "$value": "18px", "$description": "Font size of a question heading." },
+    "thumbZonePad": { "$value": "12px", "$description": "Padding of the bottom thumb-reach bar." }
+  },
+  "moving": {
+    "$type": "dimension",
+    "targetMin": { "$value": "56px", "$description": "Minimum touch target size while walking." },
+    "gap": { "$value": "20px", "$description": "Spacing between blocks." },
+    "fieldGap": { "$value": "32px", "$description": "Spacing between form fields." },
+    "fontQuestion": { "$value": "24px", "$description": "Font size of a question heading." },
+    "thumbZonePad": { "$value": "16px", "$description": "Padding of the bottom thumb-reach bar." },
+    "sliderTrack": { "$value": "12px", "$description": "Slider track thickness (moving only)." },
+    "sliderThumb": { "$value": "32px", "$description": "Slider thumb diameter (moving only)." }
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MOTION_CONFIG as config } from './config';
-import { initialMachine, isWalkingCadence, stepMachine } from './machine';
+import { initialMachine, isWalkingActivity, isWalkingCadence, stepMachine } from './machine';
 
 /** Feeds `walking` once per second from `from` to `to` (inclusive). */
 function run(m: ReturnType<typeof initialMachine>, walking: boolean, from: number, to: number) {
@@ -68,5 +68,15 @@ describe('isWalkingCadence', () => {
     expect(isWalkingCadence(2.5, config)).toBe(true);
     expect(isWalkingCadence(1.4, config)).toBe(false);
     expect(isWalkingCadence(2.6, config)).toBe(false);
+  });
+});
+
+describe('isWalkingActivity', () => {
+  it('needs a listed activity with enough confidence', () => {
+    expect(isWalkingActivity('walking', 1, config)).toBe(true);
+    expect(isWalkingActivity('walking', 0.5, config)).toBe(true);
+    expect(isWalkingActivity('walking', 0.49, config)).toBe(false);
+    expect(isWalkingActivity('running', 1, config)).toBe(false);
+    expect(isWalkingActivity('running', 1, { ...config, movingActivities: ['walking', 'running'] })).toBe(true);
   });
 });

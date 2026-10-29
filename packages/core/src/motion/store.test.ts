@@ -171,3 +171,49 @@ describe('bindMotionAttribute', () => {
     expect(target.setAttribute.mock.calls.length).toBe(calls + 2);
   });
 });
+
+describe('activity samples', () => {
+  function feed() {
+    const clock = createFakeClock(0);
+    let emit: (s: MotionSample) => void = () => {};
+    const source: MotionSource = { id: 'native', start: (e) => void (emit = e), stop: () => {} };
+    const store = createMotionStore({ source, now: clock.now, scheduler: clock.scheduler });
+    return { clock, store, emit: (s: MotionSample) => emit(s), send: (s: Omit<Extract<MotionSample, { kind: 'activity' }>, 't' | 'kind'>) => emit({ kind: 'activity', t: clock.now(), ...s }) };
+  }
+
+  it('goes through the hysteresis and reports the activity', async () => {
+    const { clock, store, send } = feed();
+    await store.start();
+    send({ activity: 'walking', confidence: 1 });
+    expect(store.getState()).toMatchObject({ state: 'still', pending: 'moving', activity: 'walking' });
+    clock.advance(5000);
+    expect(store.getState()).toMatchObject({ state: 'moving', activity: 'walking', cadence: 0 });
+  });
+
+  it('an acceleration sample switches back to cadence mode', async () => {
+    const { clock, store, emit, send } = feed();
+    await store.start();
+    send({ activity: 'walking', confidence: 1 });
+    clock.advance(5000);
+    emit({ kind: 'acceleration', t: clock.now(), x: 0, y: 0, z: 9.81 });
+    expect(store.getState()).toMatchObject({ activity: null, detected: 'moving', pending: 'still' });
+  });
+});
+
+describe('configure', () => {
+  it('replaces the config, re-evaluates, and the estimator follows the new band', async () => {
+    const clock = createFakeClock();
+    const simulator = createSimulatorSource({ cadence: 1.8, scheduler: clock.scheduler, now: clock.now });
+    const store = createMotionStore({ source: simulator, now: clock.now, scheduler: clock.scheduler });
+    const before = store.config;
+    await store.start();
+    store.configure({ maxCadence: 1.7 });
+    expect(store.config).not.toBe(before);
+    expect(before.maxCadence).toBe(2.5);
+    clock.advance(12000);
+    expect(store.getState().state).toBe('still');
+    store.configure({ maxCadence: 2.5 });
+    clock.advance(6000);
+    expect(store.getState().state).toBe('moving');
+  });
+});

@@ -1,0 +1,18 @@
+/* Generated from tokens/kinetic.tokens.json by `npm run tokens` in @kinetic-ui/spec. Do not edit. */
+:root {
+  --k-target-min: 44px;
+  --k-gap: 16px;
+  --k-field-gap: 24px;
+  --k-font-question: 18px;
+  --k-thumb-zone-pad: 12px;
+}
+
+[data-motion='moving'] {
+  --k-target-min: 56px;
+  --k-gap: 20px;
+  --k-field-gap: 32px;
+  --k-font-question: 24px;
+  --k-thumb-zone-pad: 16px;
+  --k-slider-track: 12px;
+  --k-slider-thumb: 32px;
+}

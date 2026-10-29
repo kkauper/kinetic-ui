@@ -23,7 +23,7 @@ Product UI (`FullForm`, `Stepper`, field renderers) only reads `useMotion(store)
 ## Motion model
 
 ### Cadence heuristic plus hysteresis (demo-grade)
-**Chosen:** acceleration magnitude, minus a slow moving average (gravity), lightly smoothed; a step is a rising crossing of a threshold with a refractory period; cadence is 1000 / median step interval over a 4 s window. Walking is cadence within 1.5–2.5 steps/s. A pure reducer (`stepMachine`) commits a change only after the opposite condition has held for `enterMovingAfterMs` (5 s) or `exitMovingAfterMs` (10 s).
+**Chosen:** acceleration magnitude, minus a slow moving average (gravity), lightly smoothed; a step is a rising crossing of a threshold with a refractory period; cadence is 1000 / median step interval over a 4 s window. Both averages use time constants (about 1 s for gravity, 55 ms for the step signal) and the refractory period is 200 ms, so results do not depend on the sample rate (phones deliver 50-100 Hz); with a fixed 0.3 coefficient and a 250 ms refractory period, a 4 steps/s shake sampled at 50 Hz was read as 2 steps/s, inside the walking band. Walking is cadence within 1.5–2.5 steps/s. A pure reducer (`stepMachine`) commits a change only after the opposite condition has held for `enterMovingAfterMs` (5 s) or `exitMovingAfterMs` (10 s).
 **Why:** cheap, explainable, runs on any phone browser, and the slow exit means a pause at a traffic light does not flip the UI back and forth. The asymmetric timing biases towards the full form: simplifying late is cheaper than simplifying wrongly.
 **Rejected:** native activity recognition (Core Motion, Activity Recognition API). Not reachable from a web page and out of scope by brief. ML classifiers: overkill for a prototype and hard to explain.
 **Measured (synthetic 1.8 steps/s walk in Chromium):** still → moving after 7.1 s (cadence window warm-up plus 5 s), moving → still 11.2 s after walking stopped.
@@ -39,6 +39,24 @@ Samples are stamped with the store's clock (`Date.now()` by default), never with
 **Chosen:** an explicit "Walking mode" button. `DeviceMotionEvent.requestPermission()` (iOS 13+, and present in newer Chrome) only succeeds during a user gesture, so the path click → `setSource` → `start` → `source.start` → `requestPermission()` has **no `await` before the permission call**. This was verified in Playwright (`navigator.userActivation.isActive` was true inside the call).
 **Failure modes, each with a visible message:** insecure context (sensors need HTTPS), API missing, permission denied, no data within 3 s (desktop browsers expose the API but never fire it).
 **Rejected:** starting sensors on page load. It is impossible on iOS and would be a surprising permission prompt elsewhere.
+
+### Activity samples from native classifiers
+**Chosen:** a third sample kind, `activity` (`stationary | walking | running | cycling | automotive | unknown` plus a 0..1 confidence), for the OS classifiers on iOS (Core Motion) and Android (Activity Recognition). It goes through the same hysteresis as cadence, because OS classifiers flicker too. Only `walking` with confidence >= 0.5 counts as walking by default (`movingActivities`, `minActivityConfidence`). iOS low/medium/high maps to 0.33/0.67/1; Android transitions have no confidence and report 1.
+**Why running and vehicles are not walking:** same reasoning as the cadence band. The full form is the safe direction when the user is running or riding.
+**Not on the web:** there is no browser source for it; it exists so the model is the same on every platform.
+
+### Live tuning
+`store.configure(partial)` replaces the immutable config and re-evaluates; the cadence estimator reads the current config through a getter. The debug tools use it for the cadence band (session-only, nothing persisted).
+
+## Shared spec and conformance
+
+**Chosen:** `packages/spec` holds language-neutral JSON: the form schema, fixtures for the reducer, the walking classifier, the cadence estimator (generated accelerometer traces with expected cadence and a tolerance), the store (fake clock, no raw sensor data), the form model and the email helpers. `core/src/conformance.test.ts` runs every case against the TypeScript implementation; the Rust core and the Swift and Kotlin packages will run the same files. Test cases double as documentation of the behavior.
+**Why:** parity across languages is only real if it is tested; a prose spec drifts. The cadence traces are committed data, so implementations do not need to reproduce the TypeScript generator's PRNG.
+**Cost:** fixtures are a second place to update when behavior changes on purpose. Unit tests stay for the TypeScript-specific contracts (same snapshot reference, no emit on no-ops).
+
+### Design tokens from one source
+**Chosen:** `kinetic.tokens.json` in the DTCG format, built by Style Dictionary 5 into CSS, Swift and Kotlin (committed outputs). Custom formats keep the output short and scoped (`:root` plus `[data-motion='moving']`).
+**Note:** the question font size is now `18px` / `24px` instead of `1.125rem` / `1.5rem`, because tokens are unit-agnostic numbers shared with native platforms (where they become pt, dp and sp).
 
 ## False positives (being wrong is expected)
 
@@ -69,12 +87,12 @@ Samples are stamped with the store's clock (`Date.now()` by default), never with
 **Rejected:** hand-built controls (re-implementing well-solved accessibility is a poor use of a prototype) and headless primitives alone (more styling work, and visual polish is explicitly secondary).
 
 ### Moving mode is a token set
-- `apps/demo/src/tokens.css` defines `--k-*` variables (target size, gaps, question type size, thumb-zone padding) and swaps them under `[data-motion='moving']`. Targets are at least 56 px in moving mode (measured: Back/Next 56 px).
+- The `--k-*` variables (target size, gaps, question type size, thumb-zone padding, slider track and thumb) are generated from `packages/spec/tokens/kinetic.tokens.json` into `generated/tokens.css` and swapped under `[data-motion='moving']`; `apps/demo/src/tokens.css` only uses them. Targets are at least 56 px in moving mode (measured: Back/Next 56 px).
 - Radix levers are mapped in one place (`ui/useUiSize.ts`): Theme `scaling` 100% → 110% and component `size` 2 → 3.
 - No per-component overrides scattered across files.
 
 ### Radix overrides (deliberate, documented)
-1. **Slider thumb size.** Radix's largest Slider thumb is about 14 px (`--slider-thumb-size: calc(var(--slider-track-size) + var(--space-1))`). Too small to hit while walking. Override, scoped to moving mode: `[data-motion='moving'] .rt-SliderRoot { --slider-track-size: 12px; --slider-thumb-size: 32px; }`. The thumb's `::before` hit area is 3× the thumb, so 96 px. Uses Radix's own variables, so it survives minor upgrades, but relies on the internal class name `.rt-SliderRoot`.
+1. **Slider thumb size.** Radix's largest Slider thumb is about 14 px (`--slider-thumb-size: calc(var(--slider-track-size) + var(--space-1))`). Too small to hit while walking. Override, scoped to moving mode: `[data-motion='moving'] .rt-SliderRoot { --slider-track-size: var(--k-slider-track); --slider-thumb-size: var(--k-slider-thumb); }` (12 px and 32 px, from the tokens). The thumb's `::before` hit area is 3× the thumb, so 96 px. Uses Radix's own variables, so it survives minor upgrades, but relies on the internal class name `.rt-SliderRoot`.
 2. **Slider thumb ARIA.** Radix Themes spreads `aria-*` props onto the Slider root, but the element with `role="slider"` is the thumb, which received no accessible name and no `aria-valuetext`. A small layout effect sets `aria-labelledby`, `aria-valuetext` ("Weekly", not "2"), `aria-describedby` and `aria-invalid` on the thumb. Radix never renders these attributes itself, so they are not overwritten.
 3. **TextField.** No override needed: `TextField.Root` forwards `type`, `inputMode`, `autoComplete`, `autoCapitalize`, `autoCorrect`, `spellCheck` and `enterKeyHint` to the inner `<input>` (verified in the rendered DOM).
 
@@ -108,5 +126,5 @@ Cloudflare Workers with static assets, at `kineticui.kauper.co`, deployed by Clo
 - "Session" for Show-full suppression is the page lifetime, not `sessionStorage`. A reload re-enables moving mode.
 - No real backend or auth; "Create account" only validates.
 - Not a full accessibility audit; tested with keyboard and Playwright's accessibility snapshot, not with VoiceOver/TalkBack on devices.
-- Unit tests cover the motion state machine, cadence estimator, motion store, Show-full policy, form model and email helpers. UI behaviour was verified with scripted Playwright runs, which are not committed as a test suite.
+- Conformance fixtures (`packages/spec`) and unit tests cover the motion state machine, cadence estimator, motion store, Show-full policy, form model and email helpers. UI behaviour was verified with scripted Playwright runs, which are not committed as a test suite.
 - npm: the unscoped name `kinetic-ui` belongs to an unrelated, abandoned 2021 package; the `@kinetic-ui` scope is unclaimed. The packages here are private workspace packages and are not published.

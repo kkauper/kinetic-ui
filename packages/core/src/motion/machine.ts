@@ -1,5 +1,5 @@
 import type { MotionConfig } from './config';
-import type { MotionState } from './types';
+import type { ActivityKind, MotionState } from './types';
 
 export interface MachineState {
   state: MotionState;
@@ -16,6 +16,11 @@ export function initialMachine(now: number): MachineState {
 /** Whether a cadence lies in the walking band (inclusive). */
 export function isWalkingCadence(cadence: number, config: MotionConfig): boolean {
   return cadence >= config.minCadence && cadence <= config.maxCadence;
+}
+
+/** Whether an OS activity classification counts as walking (confident enough and listed). */
+export function isWalkingActivity(activity: ActivityKind, confidence: number, config: MotionConfig): boolean {
+  return confidence >= config.minActivityConfidence && config.movingActivities.includes(activity);
 }
 
 /**

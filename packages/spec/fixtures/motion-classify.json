@@ -1,0 +1,121 @@
+{
+  "$comment": "Whether one input counts as walking (isWalkingCadence / isWalkingActivity). input is either {cadence} (steps/s) or {activity, confidence}. config overrides the defaults (minCadence 1.5, maxCadence 2.5 inclusive; movingActivities [walking]; minActivityConfidence 0.5, inclusive).",
+  "version": 1,
+  "cases": [
+    {
+      "name": "cadence at the lower band edge (1.5) is walking",
+      "input": {"cadence": 1.5},
+      "walking": true
+    },
+    {
+      "name": "cadence at the upper band edge (2.5) is walking",
+      "input": {"cadence": 2.5},
+      "walking": true
+    },
+    {
+      "name": "cadence just below the band (1.49) is not walking",
+      "input": {"cadence": 1.49},
+      "walking": false
+    },
+    {
+      "name": "cadence just above the band (2.51) is not walking",
+      "input": {"cadence": 2.51},
+      "walking": false
+    },
+    {
+      "name": "cadence in the middle of the band (1.8) is walking",
+      "input": {"cadence": 1.8},
+      "walking": true
+    },
+    {
+      "name": "no cadence (0) is not walking",
+      "input": {"cadence": 0},
+      "walking": false
+    },
+    {
+      "name": "shaking cadence (3.5) is not walking",
+      "input": {"cadence": 3.5},
+      "walking": false
+    },
+    {
+      "name": "custom band 1.5-1.7 excludes 1.8",
+      "config": {"minCadence": 1.5, "maxCadence": 1.7},
+      "input": {"cadence": 1.8},
+      "walking": false
+    },
+    {
+      "name": "custom band 1.5-1.7 includes 1.7",
+      "config": {"minCadence": 1.5, "maxCadence": 1.7},
+      "input": {"cadence": 1.7},
+      "walking": true
+    },
+    {
+      "name": "walking with full confidence is walking",
+      "input": {"activity": "walking", "confidence": 1},
+      "walking": true
+    },
+    {
+      "name": "walking at exactly the minimum confidence (0.5) counts",
+      "input": {"activity": "walking", "confidence": 0.5},
+      "walking": true
+    },
+    {
+      "name": "walking just below the minimum confidence (0.49) does not count",
+      "input": {"activity": "walking", "confidence": 0.49},
+      "walking": false
+    },
+    {
+      "name": "iOS low confidence (0.33) does not count",
+      "input": {"activity": "walking", "confidence": 0.33},
+      "walking": false
+    },
+    {
+      "name": "iOS medium confidence (0.67) counts",
+      "input": {"activity": "walking", "confidence": 0.67},
+      "walking": true
+    },
+    {
+      "name": "running is not walking by default",
+      "input": {"activity": "running", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "automotive is not walking",
+      "input": {"activity": "automotive", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "cycling is not walking",
+      "input": {"activity": "cycling", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "stationary is not walking",
+      "input": {"activity": "stationary", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "unknown is not walking",
+      "input": {"activity": "unknown", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "running counts when listed in movingActivities",
+      "config": {"movingActivities": ["walking", "running"]},
+      "input": {"activity": "running", "confidence": 1},
+      "walking": true
+    },
+    {
+      "name": "walking does not count when movingActivities is empty",
+      "config": {"movingActivities": []},
+      "input": {"activity": "walking", "confidence": 1},
+      "walking": false
+    },
+    {
+      "name": "a stricter minimum confidence rejects iOS medium (0.67)",
+      "config": {"minActivityConfidence": 0.9},
+      "input": {"activity": "walking", "confidence": 0.67},
+      "walking": false
+    }
+  ]
+}

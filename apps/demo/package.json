@@ -13,6 +13,7 @@
   "dependencies": {
     "@kinetic-ui/core": "*",
     "@kinetic-ui/react": "*",
+    "@kinetic-ui/spec": "*",
     "@radix-ui/themes": "^3.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

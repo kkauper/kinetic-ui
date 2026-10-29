@@ -32,6 +32,7 @@ Live demo: https://kineticui.kauper.co (works on a phone over HTTPS).
 | --- | --- |
 | `@kinetic-ui/core` | Headless TypeScript. Motion (sources, cadence, hysteresis, Show-full policy) and form (schema, model, persistence). No framework or DOM types. |
 | `@kinetic-ui/react` | Hooks over `useSyncExternalStore`: `useStore`, `useMotion`, `useFormModel`, `useShowFull`, `useMotionAttribute`. |
+| `@kinetic-ui/spec` | Language-neutral data: the form schema, JSON conformance fixtures every implementation runs, and design tokens generated into CSS, Swift and Kotlin. |
 | `apps/demo` | The demo: Vite, React and Radix Themes. |
 
 These are private workspace packages. They are not published to npm.
@@ -195,6 +196,7 @@ Not covered: this is not a full audit. It was checked with keyboard and Playwrig
 packages/
   core/    headless TS: motion/ (sources, cadence, machine, store, config), form/ (schema, model, persistence)
   react/   hooks over the store contract
+  spec/    schemas, conformance fixtures, DTCG tokens + generated CSS/Swift/Kotlin
 apps/
   demo/    Vite + React + Radix Themes; stores.ts wires the singletons, demo-controls/ owns the sources
 .github/workflows/ci.yml       tests, typecheck and build on push and PR

@@ -1,0 +1,123 @@
+{
+  "$comment": "Store-level scenarios on a fake clock; no raw accelerometer data. Create the store at t 0 with config, a source that never emits on its own and a scheduler whose tick callback only runs on a tick event; start it. For every event first set the clock to t, then act: sample (adds t to the sample), tick (run the store tick), force, showFull / resetSession (only when the case sets showFull: true, a Show-full policy with default options is attached to the store before start). After the event compare each key present in expect against the snapshot (state, detected, forced, pending, activity) or the policy state (showFull: active, taps, suppressed).",
+  "version": 1,
+  "cases": [
+    {
+      "name": "an explicit state bypasses hysteresis and stays put",
+      "events": [
+        {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "moving", "detected": "moving", "pending": null, "activity": null}},
+        {"t": 60000, "do": "tick", "expect": {"state": "moving", "pending": null}},
+        {"t": 61000, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"state": "still", "detected": "still"}}
+      ]
+    },
+    {
+      "name": "activity walking enters moving after 5 s of ticks",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"state": "still", "pending": "moving", "activity": "walking"}},
+        {"t": 2000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 4999, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 5000, "do": "tick", "expect": {"state": "moving", "detected": "moving", "pending": null, "activity": "walking"}}
+      ]
+    },
+    {
+      "name": "activity automotive does not enter moving",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "automotive", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "automotive"}},
+        {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "activity running does not enter moving",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "running", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "running"}},
+        {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "activity cycling does not enter moving",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "cycling", "confidence": 1}, "expect": {"state": "still", "pending": null, "activity": "cycling"}},
+        {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "low-confidence walking does not enter moving",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 0.33}, "expect": {"state": "still", "pending": null}},
+        {"t": 20000, "do": "tick", "expect": {"state": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "running enters moving when the config lists it",
+      "config": {"movingActivities": ["walking", "running"]},
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "running", "confidence": 1}, "expect": {"pending": "moving"}},
+        {"t": 5000, "do": "tick", "expect": {"state": "moving"}}
+      ]
+    },
+    {
+      "name": "OS classifier flicker restarts the hysteresis clock",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
+        {"t": 3000, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 3500, "do": "sample", "sample": {"kind": "activity", "activity": "unknown", "confidence": 1}, "expect": {"state": "still", "pending": null}},
+        {"t": 4000, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"pending": "moving"}},
+        {"t": 8999, "do": "tick", "expect": {"state": "still", "pending": "moving"}},
+        {"t": 9000, "do": "tick", "expect": {"state": "moving", "pending": null}}
+      ]
+    },
+    {
+      "name": "leaving moving takes 10 s of non-walking activity",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}},
+        {"t": 5000, "do": "tick", "expect": {"state": "moving"}},
+        {"t": 6000, "do": "sample", "sample": {"kind": "activity", "activity": "stationary", "confidence": 1}, "expect": {"state": "moving", "pending": "still"}},
+        {"t": 15999, "do": "tick", "expect": {"state": "moving", "pending": "still"}},
+        {"t": 16000, "do": "tick", "expect": {"state": "still", "detected": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "an explicit state sample after an activity clears the activity",
+      "events": [
+        {"t": 0, "do": "sample", "sample": {"kind": "activity", "activity": "walking", "confidence": 1}, "expect": {"activity": "walking"}},
+        {"t": 5000, "do": "tick", "expect": {"state": "moving"}},
+        {"t": 5500, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"state": "still", "detected": "still", "pending": null, "activity": null}}
+      ]
+    },
+    {
+      "name": "force overrides the detected state and null restores it",
+      "events": [
+        {"t": 500, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"state": "still"}},
+        {"t": 1000, "do": "force", "state": "moving", "expect": {"state": "moving", "detected": "still", "forced": "moving"}},
+        {"t": 2000, "do": "force", "state": null, "expect": {"state": "still", "forced": null}}
+      ]
+    },
+    {
+      "name": "show full: tap forces still, a detected stop releases it",
+      "showFull": true,
+      "events": [
+        {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "moving", "showFull": {"active": false, "taps": 0, "suppressed": false}}},
+        {"t": 2000, "do": "showFull", "expect": {"state": "still", "detected": "moving", "forced": "still", "showFull": {"active": true, "taps": 1, "suppressed": false}}},
+        {"t": 3000, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"state": "still", "forced": null, "showFull": {"active": false, "taps": 1, "suppressed": false}}},
+        {"t": 4000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "moving"}}
+      ]
+    },
+    {
+      "name": "show full: the third tap suppresses moving mode until resetSession",
+      "showFull": true,
+      "events": [
+        {"t": 1000, "do": "sample", "sample": {"kind": "state", "state": "moving"}},
+        {"t": 2000, "do": "showFull", "expect": {"state": "still", "showFull": {"active": true, "taps": 1, "suppressed": false}}},
+        {"t": 3000, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"forced": null, "showFull": {"active": false, "taps": 1, "suppressed": false}}},
+        {"t": 4000, "do": "sample", "sample": {"kind": "state", "state": "moving"}},
+        {"t": 5000, "do": "showFull", "expect": {"state": "still", "showFull": {"active": true, "taps": 2, "suppressed": false}}},
+        {"t": 6000, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"forced": null, "showFull": {"active": false, "taps": 2, "suppressed": false}}},
+        {"t": 7000, "do": "sample", "sample": {"kind": "state", "state": "moving"}},
+        {"t": 8000, "do": "showFull", "expect": {"state": "still", "showFull": {"active": true, "taps": 3, "suppressed": true}}},
+        {"t": 9000, "do": "sample", "sample": {"kind": "state", "state": "still"}, "expect": {"forced": "still", "showFull": {"active": true, "taps": 3, "suppressed": true}}},
+        {"t": 10000, "do": "sample", "sample": {"kind": "state", "state": "moving"}, "expect": {"state": "still", "detected": "moving", "forced": "still"}},
+        {"t": 11000, "do": "resetSession", "expect": {"state": "moving", "forced": null, "showFull": {"active": false, "taps": 0, "suppressed": false}}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@kinetic-ui/spec",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./schemas/*": "./schemas/*",
+    "./fixtures/*": "./fixtures/*",
+    "./generated/*": "./generated/*"
+  },
+  "scripts": {
+    "tokens": "node scripts/build-tokens.mjs",
+    "fixtures": "node --experimental-strip-types scripts/generate-cadence-traces.ts"
+  },
+  "devDependencies": {
+    "style-dictionary": "^5.7.1"
+  }
+}

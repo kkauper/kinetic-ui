@@ -1,0 +1,83 @@
+{
+  "$comment": "Pure hysteresis reducer. Start from initialMachine(0): state still, enteredAt 0, no pending. Apply each step in order (stepMachine({now: t, walking})). When a step has expect, compare state, pending, and enteredAt / pendingSince if present. config overrides the defaults (enterMovingAfterMs 5000, exitMovingAfterMs 10000). Times are in ms.",
+  "version": 1,
+  "cases": [
+    {
+      "name": "enters moving only after 5 s of sustained walking",
+      "steps": [
+        {"t": 0, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 1000, "walking": true},
+        {"t": 4000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}}
+      ]
+    },
+    {
+      "name": "one millisecond short of the threshold is still pending",
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 4999, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}}
+      ]
+    },
+    {
+      "name": "a 2 s walk does not enter moving",
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 1000, "walking": true},
+        {"t": 2000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 3000, "walking": false, "expect": {"state": "still", "pending": null}},
+        {"t": 20000, "walking": false, "expect": {"state": "still", "pending": null}}
+      ]
+    },
+    {
+      "name": "a brief interruption restarts the clock",
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 3000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 4000, "walking": false, "expect": {"state": "still", "pending": null}},
+        {"t": 5000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 5000}},
+        {"t": 9000, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 5000}},
+        {"t": 10000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 10000}}
+      ]
+    },
+    {
+      "name": "exits moving only after 10 s of non-walking",
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
+        {"t": 6000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
+        {"t": 15000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
+        {"t": 16000, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 16000}}
+      ]
+    },
+    {
+      "name": "a 4 s traffic-light pause does not exit moving",
+      "steps": [
+        {"t": 0, "walking": true},
+        {"t": 5000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
+        {"t": 6000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
+        {"t": 9000, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 6000}},
+        {"t": 10000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}},
+        {"t": 20000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 5000}}
+      ]
+    },
+    {
+      "name": "never walking stays still with nothing pending",
+      "steps": [
+        {"t": 0, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 0}},
+        {"t": 30000, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 0}}
+      ]
+    },
+    {
+      "name": "custom config: enter after 1 s, exit after 2 s",
+      "config": {"enterMovingAfterMs": 1000, "exitMovingAfterMs": 2000},
+      "steps": [
+        {"t": 0, "walking": true, "expect": {"state": "still", "pending": "moving", "pendingSince": 0}},
+        {"t": 1000, "walking": true, "expect": {"state": "moving", "pending": null, "enteredAt": 1000}},
+        {"t": 1500, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 1500}},
+        {"t": 3499, "walking": false, "expect": {"state": "moving", "pending": "still", "pendingSince": 1500}},
+        {"t": 3500, "walking": false, "expect": {"state": "still", "pending": null, "enteredAt": 3500}}
+      ]
+    }
+  ]
+}

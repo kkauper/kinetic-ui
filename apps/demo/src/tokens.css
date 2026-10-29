@@ -1,19 +1,4 @@
-/* The "moving" lever: tokens swapped by <html data-motion>, not scattered overrides. */
-:root {
-  --k-target-min: 44px;
-  --k-gap: 16px;
-  --k-field-gap: 24px;
-  --k-font-question: 1.125rem;
-  --k-thumb-zone-pad: 12px;
-}
-
-[data-motion='moving'] {
-  --k-target-min: 56px;
-  --k-gap: 20px;
-  --k-field-gap: 32px;
-  --k-font-question: 1.5rem;
-  --k-thumb-zone-pad: 16px;
-}
+/* The --k-* variables come from @kinetic-ui/spec (generated/tokens.css, imported in main.tsx). This file only uses them. */
 
 body {
   margin: 0;
@@ -32,8 +17,8 @@ body {
  * area is 3x the thumb size).
  */
 [data-motion='moving'] .rt-SliderRoot {
-  --slider-track-size: 12px;
-  --slider-thumb-size: 32px;
+  --slider-track-size: var(--k-slider-track);
+  --slider-thumb-size: var(--k-slider-thumb);
 }
 
 /* Layout */
@@ -76,6 +61,17 @@ body {
   gap: 8px;
   padding: 8px 0;
   font-size: var(--font-size-1);
+}
+
+.k-debug-tools__bands {
+  display: flex;
+  gap: 12px;
+}
+
+.k-debug-tools__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .k-debug-tools__buttons {
@@ -297,6 +293,7 @@ body {
 }
 
 /* Tooling (demo controls) opts out of the touch-target floor: it is not product UI. */
-.k-demo-controls .rt-Button {
+.k-demo-controls .rt-Button,
+.k-demo-controls .rt-TextFieldRoot {
   min-height: 0;
 }

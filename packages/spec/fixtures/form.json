@@ -1,0 +1,186 @@
+{
+  "$comment": "Form model action sequences on a schema from schemas/ (signup = signup.schema.json). Create the model with memory persistence, preloaded with stored when present. Run actions in order. setAnswer with value null removes the answer. expect, when present, is checked after the action: answers and deferred must be equal, currentStep equal, errorIds is the set of ids in errors (order not significant), errors (optional) maps ids to the exact messages, returned is the boolean result of next, defer or validateAll.",
+  "version": 1,
+  "cases": [
+    {
+      "name": "starts empty at step 0",
+      "schema": "signup",
+      "actions": [
+        {"do": "validateAll", "expect": {"answers": {}, "currentStep": 0, "deferred": [], "errorIds": ["email"], "returned": false}}
+      ]
+    },
+    {
+      "name": "required email blocks next() with its message and setAnswer clears the error",
+      "schema": "signup",
+      "actions": [
+        {"do": "next", "expect": {"currentStep": 0, "errorIds": ["email"], "errors": {"email": "Email is required."}, "returned": false}},
+        {"do": "setAnswer", "id": "email", "value": "x", "expect": {"errorIds": []}}
+      ]
+    },
+    {
+      "name": "an invalid email blocks next() with the format message",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "not-an-email"},
+        {"do": "next", "expect": {"currentStep": 0, "errors": {"email": "Enter a valid email address, like name@example.com."}, "returned": false}}
+      ]
+    },
+    {
+      "name": "a padded valid email advances",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "  ada@example.com "},
+        {"do": "next", "expect": {"currentStep": 1, "errorIds": [], "returned": true}}
+      ]
+    },
+    {
+      "name": "setting an answer to null removes it",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com", "expect": {"answers": {"email": "ada@example.com"}}},
+        {"do": "setAnswer", "id": "email", "value": null, "expect": {"answers": {}}}
+      ]
+    },
+    {
+      "name": "step navigation clamps at both ends",
+      "schema": "signup",
+      "actions": [
+        {"do": "back", "expect": {"currentStep": 0}},
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "next"},
+        {"do": "next"},
+        {"do": "next"},
+        {"do": "next"},
+        {"do": "next"},
+        {"do": "next"},
+        {"do": "next", "expect": {"currentStep": 5, "returned": true}},
+        {"do": "goTo", "step": -5, "expect": {"currentStep": 0}},
+        {"do": "goTo", "step": 99, "expect": {"currentStep": 5}}
+      ]
+    },
+    {
+      "name": "defer refuses a required field and the current step is not deferrable",
+      "schema": "signup",
+      "actions": [
+        {"do": "defer", "expect": {"deferred": [], "currentStep": 0, "returned": false}},
+        {"do": "defer", "id": "email", "expect": {"deferred": [], "returned": false}}
+      ]
+    },
+    {
+      "name": "defer on the current field advances and does not duplicate",
+      "schema": "signup",
+      "actions": [
+        {"do": "goTo", "step": 1, "expect": {"currentStep": 1}},
+        {"do": "defer", "expect": {"deferred": ["firstName"], "currentStep": 2, "returned": true}},
+        {"do": "defer", "id": "firstName", "expect": {"deferred": ["firstName"], "currentStep": 2, "returned": true}}
+      ]
+    },
+    {
+      "name": "deferring another field leaves the step alone",
+      "schema": "signup",
+      "actions": [
+        {"do": "defer", "id": "firstName", "expect": {"deferred": ["firstName"], "currentStep": 0, "returned": true}}
+      ]
+    },
+    {
+      "name": "answering a deferred field removes it from deferred",
+      "schema": "signup",
+      "actions": [
+        {"do": "defer", "id": "firstName", "expect": {"deferred": ["firstName"]}},
+        {"do": "setAnswer", "id": "firstName", "value": "Ada", "expect": {"deferred": [], "answers": {"firstName": "Ada"}}}
+      ]
+    },
+    {
+      "name": "jumpToFirstUnanswered skips answered and deferred fields",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "defer", "id": "firstName"},
+        {"do": "jumpToFirstUnanswered", "expect": {"currentStep": 2}}
+      ]
+    },
+    {
+      "name": "jumpToFirstUnanswered goes to the done step when nothing is left",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "defer", "id": "firstName"},
+        {"do": "setAnswer", "id": "referral", "value": "friend"},
+        {"do": "setAnswer", "id": "newsletter", "value": false},
+        {"do": "setAnswer", "id": "frequency", "value": 0},
+        {"do": "jumpToFirstUnanswered", "expect": {"currentStep": 5}}
+      ]
+    },
+    {
+      "name": "an explicit false toggle counts as answered",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "defer", "id": "firstName"},
+        {"do": "setAnswer", "id": "referral", "value": "friend"},
+        {"do": "jumpToFirstUnanswered", "expect": {"currentStep": 3}},
+        {"do": "setAnswer", "id": "newsletter", "value": false, "expect": {"answers": {"email": "ada@example.com", "referral": "friend", "newsletter": false}}},
+        {"do": "jumpToFirstUnanswered", "expect": {"currentStep": 4}}
+      ]
+    },
+    {
+      "name": "validateAll reports only failing fields",
+      "schema": "signup",
+      "actions": [
+        {"do": "validateAll", "expect": {"errors": {"email": "Email is required."}, "returned": false}},
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "validateAll", "expect": {"errors": {}, "returned": true}}
+      ]
+    },
+    {
+      "name": "reset clears answers, deferred, errors and the step",
+      "schema": "signup",
+      "actions": [
+        {"do": "setAnswer", "id": "email", "value": "ada@example.com"},
+        {"do": "defer", "id": "firstName"},
+        {"do": "next", "expect": {"currentStep": 1}},
+        {"do": "reset", "expect": {"answers": {}, "currentStep": 0, "deferred": [], "errorIds": []}}
+      ]
+    },
+    {
+      "name": "restores stored answers and lands on the first unanswered step",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com", "firstName": "Ada"}, "deferred": []},
+      "actions": [
+        {"do": "validateAll", "expect": {"answers": {"email": "ada@example.com", "firstName": "Ada"}, "currentStep": 2, "deferred": [], "returned": true}}
+      ]
+    },
+    {
+      "name": "restores deferred fields and skips them",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com"}, "deferred": ["firstName"]},
+      "actions": [
+        {"do": "validateAll", "expect": {"deferred": ["firstName"], "currentStep": 2}}
+      ]
+    },
+    {
+      "name": "ignores stored data from another schema version",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 99, "answers": {"email": "ada@example.com"}, "deferred": []},
+      "actions": [
+        {"do": "validateAll", "expect": {"answers": {}, "currentStep": 0}}
+      ]
+    },
+    {
+      "name": "drops stored answers and deferred ids for unknown fields",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com", "legacy": "x"}, "deferred": ["legacy"]},
+      "actions": [
+        {"do": "validateAll", "expect": {"answers": {"email": "ada@example.com"}, "deferred": []}}
+      ]
+    },
+    {
+      "name": "a stored deferred field that is also answered is not deferred",
+      "schema": "signup",
+      "stored": {"schemaId": "signup", "schemaVersion": 1, "answers": {"email": "ada@example.com", "firstName": "Ada"}, "deferred": ["firstName"]},
+      "actions": [
+        {"do": "validateAll", "expect": {"deferred": [], "currentStep": 2}}
+      ]
+    }
+  ]
+}

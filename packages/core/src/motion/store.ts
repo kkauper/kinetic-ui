@@ -3,9 +3,9 @@ import type { ReadableStore } from '../store';
 import { createCadenceEstimator } from './cadence';
 import { DEFAULT_MOTION_CONFIG } from './config';
 import type { MotionConfig } from './config';
-import { initialMachine, isWalkingCadence, stepMachine } from './machine';
+import { initialMachine, isWalkingActivity, isWalkingCadence, stepMachine } from './machine';
 import type { MachineState } from './machine';
-import type { MotionSample, MotionSnapshot, MotionSource, MotionState, Scheduler } from './types';
+import type { ActivityKind, MotionSample, MotionSnapshot, MotionSource, MotionState, Scheduler } from './types';
 
 export interface MotionStore extends ReadableStore<MotionSnapshot> {
   /** Starts the active source and the tick timer. Rejects (and sets `error`) if the source cannot start. */
@@ -15,6 +15,9 @@ export interface MotionStore extends ReadableStore<MotionSnapshot> {
   force(state: MotionState | null): void;
   /** Swaps the input source, restarting automatically if running. Resets detector and hysteresis. */
   setSource(source: MotionSource | null): Promise<void>;
+  /** Merges into the config (replacing the object) and re-evaluates. For live tuning; the tick interval applies on the next start. */
+  configure(partial: Partial<MotionConfig>): void;
+  /** The current immutable config; replaced, never mutated, by `configure`. */
   readonly config: MotionConfig;
 }
 
@@ -46,10 +49,10 @@ function sameSnapshot(a: MotionSnapshot, b: MotionSnapshot): boolean {
  * one observable snapshot. Snapshots are immutable and replaced only on change.
  */
 export function createMotionStore(options: MotionStoreOptions = {}): MotionStore {
-  const config: MotionConfig = { ...DEFAULT_MOTION_CONFIG, ...options.config };
+  let config: MotionConfig = { ...DEFAULT_MOTION_CONFIG, ...options.config };
   const now = options.now ?? (() => Date.now());
   const scheduler = options.scheduler ?? defaultScheduler();
-  const estimator = createCadenceEstimator(config);
+  const estimator = createCadenceEstimator(() => config);
   const emitter = createEmitter();
 
   let source: MotionSource | null = options.source ?? null;
@@ -57,6 +60,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   let forced: MotionState | null = null;
   /** True once the source reports states directly, which bypasses the estimator. */
   let explicit = false;
+  /** Latest OS activity sample; while set, it (not the cadence) decides "walking". */
+  let lastActivity: { activity: ActivityKind; confidence: number } | null = null;
   /** True between start() and stop(); decides whether setSource restarts. */
   let active = false;
   let running = false;
@@ -70,6 +75,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     detected: 'still',
     forced: null,
     cadence: 0,
+    activity: null,
     enteredAt: machine.enteredAt,
     pending: null,
     pendingSince: null,
@@ -85,7 +91,8 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
       state,
       detected: machine.state,
       forced,
-      cadence: explicit ? 0 : estimator.cadence(t),
+      cadence: explicit || lastActivity ? 0 : estimator.cadence(t),
+      activity: explicit ? null : (lastActivity?.activity ?? null),
       enteredAt: state === snapshot.state ? snapshot.enteredAt : t,
       pending: machine.pending,
       pendingSince: machine.pendingSince,
@@ -100,7 +107,9 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
 
   function evaluate(): void {
     if (!explicit) {
-      const walking = isWalkingCadence(estimator.cadence(now()), config);
+      const walking = lastActivity
+        ? isWalkingActivity(lastActivity.activity, lastActivity.confidence, config)
+        : isWalkingCadence(estimator.cadence(now()), config);
       machine = stepMachine(machine, { now: now(), walking }, config);
     }
     publish();
@@ -109,14 +118,21 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   function onSample(sample: MotionSample): void {
     if (sample.kind === 'state') {
       explicit = true;
+      lastActivity = null;
       estimator.reset();
       machine =
         sample.state === machine.state
           ? { ...machine, pending: null, pendingSince: null }
           : { state: sample.state, enteredAt: now(), pending: null, pendingSince: null };
       publish();
+    } else if (sample.kind === 'activity') {
+      explicit = false;
+      estimator.reset();
+      lastActivity = { activity: sample.activity, confidence: sample.confidence };
+      evaluate();
     } else {
       explicit = false;
+      lastActivity = null;
       estimator.push(sample);
       evaluate();
     }
@@ -131,6 +147,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     estimator.reset();
     machine = initialMachine(now());
     explicit = false;
+    lastActivity = null;
   }
 
   async function launch(): Promise<void> {
@@ -160,7 +177,9 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   }
 
   return {
-    config,
+    get config() {
+      return config;
+    },
     getState: () => snapshot,
     subscribe: emitter.subscribe,
 
@@ -174,6 +193,11 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
       active = false;
       halt();
       publish();
+    },
+
+    configure(partial) {
+      config = { ...config, ...partial };
+      evaluate();
     },
 
     force(state) {
