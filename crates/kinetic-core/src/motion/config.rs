@@ -145,7 +145,7 @@ mod tests {
         let patch: MotionConfigPatch = serde_json::from_str(r#"{"minCadence": 1.0, "movingActivities": []}"#).unwrap();
         let config = MotionConfig::default().patched(&patch);
         assert_eq!(config.min_cadence, 1.0);
-        assert!(config.moving_activities.is_empty());
+        assert_eq!(config.moving_activities, Vec::<ActivityKind>::new());
         assert_eq!(config.max_cadence, 2.5);
     }
 
