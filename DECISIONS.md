@@ -79,6 +79,14 @@ In TypeScript the policy subscribes to the store. The Rust engine has no subscri
 ### UniFFI licence
 UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own files. Using it unmodified as a dependency is compatible with this Apache-2.0 project. The generated bindings are our output, not UniFFI source.
 
+### Apple: static XCFramework, MainActor stores, Core Motion sources
+**Packaging:** `scripts/build-xcframework.sh` builds `kinetic-ffi` for five Apple targets, merges the simulator and macOS slices with `lipo`, and wraps the three static libraries in `KineticFFI.xcframework` (a plain module map, not a `framework module`). The generated `kinetic.swift` and the token file are committed so the package reads without a build; the XCFramework is git-ignored. *Rejected: cargo-swift* (one more tool to install and pin for about 30 lines of script) and *committing the binary* (large, unreviewable diffs).
+**Stores:** `MotionStore` and `FormStore` are `@MainActor @Observable`. The engine's listener fires on whatever thread pushed a sample, so it hops to the main actor to refresh the published snapshot; the store's own calls refresh synchronously. Sources are `Sendable` classes that emit from private queues; a generation counter drops samples and `start()` results from superseded starts. The generated module stays in Swift 5 mode, everything we wrote is Swift 6.
+**Activity mapping:** `CMMotionActivity` has independent Bools, so the source picks one class by priority (automotive > cycling > running > walking > stationary > unknown) and maps confidence low/medium/high to 0.33/0.67/1.0, matching the TypeScript doc comment; with the default threshold of 0.5 a `low` reading never counts as walking. The mapping is a pure function so it is tested without a device. `CMPedometer` cadence would be a possible future source (steps per second, no classifier) but the engine already derives cadence from acceleration, so it is not used.
+**Accelerometer source kept:** it runs the same heuristic as the web demo (parity, comparable debug numbers) and is the fallback where activity data is unavailable or denied. `ActivitySource` is the default on a real iPhone: the motion coprocessor classifies walking at much lower power than 50 Hz sampling.
+**Demo project:** XcodeGen (`project.yml`) generates the Xcode project. *Rejected: a committed hand-written `.xcodeproj`* (unreviewable diffs, merge conflicts).
+**Verification:** on Linux (Swift 6.4.1 via swiftly, the Rust library linked through a throwaway system-library target) the bindings, all platform-neutral `KineticUI` code and its Swift Testing suite compile and pass. Not verifiable without a Mac: the XCFramework script, the Core Motion sources, the SwiftUI environment code and the whole demo app.
+
 ## False positives (being wrong is expected)
 
 - **Debounce:** the hysteresis above.

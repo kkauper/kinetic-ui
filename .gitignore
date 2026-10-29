@@ -5,3 +5,7 @@ coverage
 *.log
 .wrangler
 target/
+native/apple/KineticFFI.xcframework/
+native/apple/.build/
+native/apple/Demo/*.xcodeproj
+native/apple/Demo/KineticDemo/Info.plist
