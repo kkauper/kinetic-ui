@@ -21,38 +21,195 @@ body {
   --slider-thumb-size: var(--k-slider-thumb);
 }
 
-/* Layout */
-.k-app {
+/* Page shell */
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--gray-1, #111113);
+}
+
+/* Radix sizes the root theme by 100vh, which on phones is taller than the visible area. */
+.radix-themes {
   min-height: 100dvh;
+  /* Focus rings must stay clearly visible on dark surfaces: one step lighter than Radix's default. */
+  --focus-8: var(--accent-10);
+  /* White on Radix's bright dark-mode blue is 3.3:1; the page background color gives 6:1. */
+  --accent-contrast: var(--gray-1);
+}
+
+.k-app {
+  --k-pad: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
+  min-height: 100dvh;
+  max-width: 760px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding-left: max(16px, env(safe-area-inset-left));
-  padding-right: max(16px, env(safe-area-inset-right));
+  padding-left: var(--k-pad);
+  padding-right: var(--k-pad);
 }
 
-.k-demo-controls {
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--gray-7);
-}
-
-.k-demo-controls__row {
+/* Header */
+.k-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
-  min-height: 32px;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding-block: 10px;
 }
 
-.k-demo-controls__switch {
+.k-header__brand {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-1);
+  gap: 10px;
+  min-height: 44px;
+  color: var(--gray-12);
+  text-decoration: none;
+  font-size: var(--font-size-4);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-full);
+}
+
+.k-header__suffix {
+  color: var(--gray-11);
+  font-weight: 500;
+}
+
+/* Pill-shaped links and buttons */
+.k-pill-link,
+.k-pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--gray-a6);
+  border-radius: 9999px;
+  background: var(--gray-3);
+  color: var(--gray-12);
+  font: inherit;
+  font-size: var(--font-size-2);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.k-pill-link:hover,
+.k-pill-button:hover {
+  background: var(--gray-4);
+}
+
+.k-pill-link--primary {
+  border-color: transparent;
+  background: var(--accent-9);
+  color: var(--accent-contrast);
+}
+
+.k-pill-link--primary:hover {
+  background: var(--accent-9);
+  filter: brightness(0.92);
+}
+
+.k-link {
+  color: var(--accent-11);
+  text-underline-offset: 3px;
+}
+
+.k-icon-button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px -6px -6px 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+}
+
+.k-icon-button:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+
+/* Demo controls: a row of toggle tags */
+.k-demo-controls {
+  padding-bottom: 4px;
+}
+
+.k-tags {
+  display: flex;
+  gap: 8px;
+  /* Bleed to the screen edges so tags scroll under the page padding. */
+  margin-inline: calc(var(--k-pad) * -1);
+  padding: 6px var(--k-pad);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--k-pad);
+}
+
+.k-tags::-webkit-scrollbar {
+  display: none;
+}
+
+.k-tag {
+  --k-tag-check: var(--gray-3);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--gray-a6);
+  border-radius: 9999px;
+  background: var(--gray-3);
+  color: var(--gray-12);
+  font: inherit;
+  font-size: var(--font-size-2);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.k-tag:hover {
+  background: var(--gray-4);
+}
+
+.k-tag[aria-pressed='true'] {
+  --k-tag-check: var(--accent-3);
+  border-color: var(--accent-8);
+  background: var(--accent-a4);
+  color: var(--accent-12);
+}
+
+.k-tag__state {
+  flex: none;
 }
 
 .k-demo-controls__status {
+  min-height: 0;
+  padding-top: 2px;
   font-size: var(--font-size-1);
   color: var(--gray-11);
+}
+
+.k-demo-controls__status:empty {
+  display: none;
+}
+
+.k-debug-panel {
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-2);
 }
 
 .k-debug-tools__body {
@@ -80,18 +237,101 @@ body {
   gap: 8px;
 }
 
-.k-appbar {
+.k-debug-tools summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Notifications */
+.k-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-block: 8px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-2);
+  color: var(--gray-12);
+}
+
+.k-notice__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+}
+
+.k-notice--error .k-notice__icon {
+  background: var(--red-a4);
+  color: var(--red-11);
+}
+
+.k-notice--info .k-notice__icon {
+  background: var(--blue-a4);
+  color: var(--blue-11);
+}
+
+.k-notice__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.k-notice__title {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+.k-notice__body {
+  margin: 4px 0 0;
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+}
+
+.k-notice__action {
+  margin-top: 10px;
+}
+
+@keyframes k-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .k-notice {
+    animation: k-notice-in 220ms ease-out;
+  }
+}
+
+/* The mode bar sits in the same place in both modes (reduce, don't rearrange). */
+.k-modebar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--k-gap);
   min-height: var(--k-target-min);
-  padding: 8px 0;
+  padding: 4px 0;
 }
 
-.k-appbar__title {
-  margin: 0;
-  font-size: var(--font-size-4);
+.k-modebar__label {
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+}
+
+.k-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .k-main {
@@ -106,13 +346,13 @@ body {
 }
 
 .k-stack {
+  padding-bottom: 24px;
+}
+
+.k-stack {
   display: flex;
   flex-direction: column;
   gap: var(--k-field-gap);
-}
-
-.k-callout {
-  margin-bottom: var(--k-gap);
 }
 
 /* Fields */
@@ -162,13 +402,28 @@ body {
   border: 0;
 }
 
-/* Stepper */
+/* Stepper: anchored to the thumb zone. Spacer on top, then question, field and the bar. */
 .k-stepper {
   flex: 1;
   display: flex;
   flex-direction: column;
   /* Let vertical scrolling work natively while horizontal swipes reach us. */
   touch-action: pan-y;
+  /* iOS keeps the layout viewport when the keyboard opens: lift the content by its height. */
+  padding-bottom: var(--k-keyboard-inset, 0px);
+}
+
+.k-stepper__spacer {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.k-stepper__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-gap);
+  /* Never let content end right against the sticky thumb bar. */
+  padding-bottom: var(--k-gap);
 }
 
 .k-stepper__header {
@@ -177,13 +432,11 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: var(--k-gap);
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
 }
 
 .k-stepper__body {
-  flex: 1;
-  /* Never let content end right against the sticky thumb bar. */
-  padding-bottom: var(--k-gap);
   display: flex;
   flex-direction: column;
   gap: var(--k-gap);
@@ -203,7 +456,7 @@ body {
 
 .k-thumb-bar {
   position: sticky;
-  bottom: 0;
+  bottom: var(--k-keyboard-inset, 0px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -292,8 +545,234 @@ body {
   padding-inline: 10px;
 }
 
-/* Tooling (demo controls) opts out of the touch-target floor: it is not product UI. */
-.k-demo-controls .rt-Button,
-.k-demo-controls .rt-TextFieldRoot {
-  min-height: 0;
+/* Landing */
+.k-landing {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 64px;
+}
+
+.k-topics {
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(var(--k-pad) * -1);
+  padding: 6px var(--k-pad);
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.k-topics::-webkit-scrollbar {
+  display: none;
+}
+
+.k-topic {
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid var(--gray-a6);
+  border-radius: 9999px;
+  background: var(--gray-3);
+  color: var(--gray-12);
+  font-size: var(--font-size-2);
+  white-space: nowrap;
+}
+
+.k-hero__tile {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: var(--gray-3);
+  border: 1px solid var(--gray-a5);
+  color: var(--gray-12);
+}
+
+.k-hero__title {
+  margin: 20px 0 12px;
+  font-size: clamp(2.25rem, 9vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--gray-12);
+}
+
+.k-hero__title:focus-visible {
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+.k-hero__intro {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--gray-11);
+  font-size: var(--font-size-4);
+  line-height: 1.55;
+}
+
+/* Tabs: segmented pills. The Radix class names are internal, so this block is the one place that knows them. */
+.k-tabs__list.rt-TabsList {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: var(--gray-3);
+  box-shadow: none;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.k-tabs__list .rt-TabsTrigger {
+  flex: none;
+  border-radius: 9999px;
+  color: var(--gray-11);
+}
+
+.k-tabs__list .rt-TabsTrigger[data-state='active'] {
+  background: var(--gray-1);
+  color: var(--gray-12);
+}
+
+.k-tabs__list .rt-TabsTrigger[data-state='active'] .rt-TabsTriggerInner {
+  font-weight: 600;
+}
+
+.k-tabs__list .rt-TabsTrigger::before {
+  display: none;
+}
+
+.k-tabs__list .rt-TabsTriggerInner,
+.k-tabs__list .rt-TabsTriggerInnerHidden {
+  padding-inline: 14px;
+}
+
+.k-tabs__list .rt-TabsTrigger {
+  min-height: 40px;
+}
+
+.k-tabs__list--sub {
+  margin-top: 16px;
+}
+
+.k-tabs__panel {
+  padding-top: 16px;
+}
+
+.k-card {
+  padding: 20px;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-5);
+  background: var(--gray-2);
+}
+
+.k-card__title {
+  margin: 0 0 8px;
+  font-size: var(--font-size-5);
+}
+
+.k-card__text {
+  margin: 0 0 12px;
+  max-width: 60ch;
+  color: var(--gray-12);
+  line-height: 1.55;
+}
+
+.k-card__text--muted {
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+}
+
+.k-code {
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-2);
+  overflow: hidden;
+}
+
+.k-code__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.k-code__lang {
+  color: var(--gray-11);
+  font: 12px ui-monospace, Menlo, Consolas, monospace;
+}
+
+.k-code__pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  color: var(--gray-12);
+  font: 13px/1.6 ui-monospace, Menlo, Consolas, monospace;
+  tab-size: 2;
+}
+
+.k-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 20;
+  margin: 0;
+  padding: 10px 18px;
+  transform: translateX(-50%);
+  border: 1px solid var(--gray-a6);
+  border-radius: 9999px;
+  background: var(--gray-4);
+  color: var(--gray-12);
+  font-size: var(--font-size-2);
+}
+
+.k-section__title {
+  margin: 0 0 16px;
+  font-size: var(--font-size-6);
+  letter-spacing: -0.02em;
+}
+
+.k-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--gray-11);
+  line-height: 1.55;
+}
+
+.k-facts strong {
+  color: var(--gray-12);
+}
+
+.k-meta {
+  margin: 24px 0 0;
+  color: var(--gray-11);
+  font: 13px ui-monospace, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.k-callout {
+  margin-bottom: var(--k-gap);
+}
+
+/* The stepper aligns its field with the question; the deferred-field stripe is a full-form cue. */
+.k-stepper .k-field {
+  padding-left: 0;
+  border-left: 0;
+}
+
+/* Radix draws its own focus ring inside the tab trigger; the global ring would double it. */
+.rt-TabsTrigger:focus-visible {
+  outline: none;
+}
+
+.k-tag,
+.k-pill-button,
+.k-pill-link,
+.k-icon-button {
+  -webkit-tap-highlight-color: transparent;
 }

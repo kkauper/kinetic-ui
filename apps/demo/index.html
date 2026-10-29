@@ -1,11 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="color-scheme: dark; background: #111113">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Kinetic UI demo</title>
+    <!-- interactive-widget: Chrome on Android resizes the layout viewport when the keyboard opens, so the thumb bar stays above it. iOS Safari ignores it; see useKeyboardInset. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <!-- Radix slate dark step 1 (--gray-1): the mobile browser chrome matches the page. -->
+    <meta name="theme-color" content="#111113" />
+    <meta name="color-scheme" content="dark" />
+    <title>Kinetic UI</title>
   </head>
-  <body>
+  <body style="background: #111113">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

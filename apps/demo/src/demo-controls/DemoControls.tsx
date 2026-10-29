@@ -1,21 +1,44 @@
-import { useState } from 'react';
-import { Button, Callout, Switch } from '@radix-ui/themes';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode, Ref } from 'react';
+import { flushSync } from 'react-dom';
 import { useMotion } from '@kinetic-ui/react';
-import { accelerometerSource, manualSource, motionStore } from '../stores';
+import { TagState } from '../layout/icons';
+import { focusStepperControl } from '../fields/focusField';
+import { accelerometerSource, formModel, manualSource, motionStore } from '../stores';
 import { DebugOverlay, readDebugPreference, writeDebugPreference } from './DebugOverlay';
 import { DebugTools } from './DebugTools';
+import { Notice } from './Notice';
+import { noticeForError } from './notices';
 import { switchSource } from './switchSource';
 
-function sensorUnavailableReason(): string | null {
-  if (typeof window === 'undefined') return null;
-  if (!window.isSecureContext) return 'Walking mode needs HTTPS, so it will likely fail here.';
-  if (!('DeviceMotionEvent' in window)) return "This browser doesn't expose device motion.";
-  return null;
+interface TagProps {
+  pressed: boolean;
+  onClick: () => void;
+  describedBy?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
+  children: ReactNode;
+}
+
+/** A pill toggle. State is shown by a ring/check icon and the accent tint, never by color alone. */
+function Tag({ pressed, onClick, describedBy, buttonRef, children }: TagProps) {
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      className="k-tag"
+      aria-pressed={pressed}
+      aria-describedby={describedBy}
+      onClick={onClick}
+    >
+      <TagState on={pressed} />
+      {children}
+    </button>
+  );
 }
 
 /**
- * Stands in for input devices (a manual switch, the phone's motion sensor).
- * It is tooling, not product UI: it keeps fixed small Radix sizes instead of
+ * Stands in for input devices (a manual toggle, the phone's motion sensor).
+ * It is tooling, not product UI: it keeps its own small, fixed sizes instead of
  * the motion-dependent ones, and it is the only place (with the debug tools)
  * that touches motion sources.
  */
@@ -26,14 +49,30 @@ export function DemoControls() {
   const starting = sensorActive && !snapshot.running && !snapshot.error;
   const manualWalking = !sensorActive && snapshot.source === manualSource.id && manualSource.get() === 'moving';
   const [debug, setDebug] = useState(readDebugPreference);
-  const unavailable = sensorUnavailableReason();
+  const walkingTag = useRef<HTMLButtonElement>(null);
 
-  function toggleManual(checked: boolean) {
-    manualSource.set(checked ? 'moving' : 'still');
-    if (snapshot.source !== manualSource.id) void switchSource(manualSource);
+  // A dismissed notice stays dismissed until the error text changes or clears.
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  useEffect(() => {
+    if (snapshot.error === null) setDismissed(null);
+  }, [snapshot.error]);
+  const notice = snapshot.error !== null && snapshot.error !== dismissed ? noticeForError(snapshot.error) : null;
+
+  function toggleManual(on: boolean) {
+    const apply = () => {
+      manualSource.set(on ? 'moving' : 'still');
+      if (snapshot.source !== manualSource.id) void switchSource(manualSource);
+    };
+    if (!on) return apply();
+    // Entering moving mode from a tap: iOS opens the keyboard only for focus() called inside the
+    // user gesture. So render the stepper synchronously here and focus its first control now.
+    jumpToOpenQuestion();
+    flushSync(apply);
+    focusStepperControl();
   }
 
   function toggleSensor() {
+    // Synchronous, no await: the iOS motion permission needs the user gesture.
     if (sensorRunning) {
       manualSource.set('still');
       void switchSource(manualSource);
@@ -45,45 +84,68 @@ export function DemoControls() {
   let status = '';
   if (starting) status = 'Waiting for motion data…';
   else if (sensorRunning) {
-    status = `Walking mode on: ${snapshot.detected === 'moving' ? 'moving' : 'still'}. Switches after ~5 s.`;
+    status = `Walking mode on — ${snapshot.detected === 'moving' ? 'moving' : 'still'}. Switches after about 5 s.`;
   }
 
   return (
     <section className="k-demo-controls" aria-label="Demo controls">
-      <div className="k-demo-controls__row">
-        <label className="k-demo-controls__switch">
-          <Switch size="1" checked={manualWalking} onCheckedChange={toggleManual} />
+      {/*
+        role="group", not role="toolbar": a toolbar promises arrow-key navigation between its
+        items, which we do not implement. Three ordinary buttons reachable with Tab is the simpler,
+        correct pattern. The row scrolls sideways on narrow screens; its buttons are focusable, so
+        keyboard users can reach every tag and the browser scrolls it into view.
+      */}
+      <div className="k-tags" role="group" aria-label="Demo controls">
+        <Tag pressed={manualWalking} onClick={() => toggleManual(!manualWalking)}>
           Simulate walking
-        </label>
-        <Button variant="outline" size="1" onClick={toggleSensor} aria-describedby="walking-mode-help">
-          {sensorRunning ? 'Stop walking mode' : 'Walking mode'}
-        </Button>
-        <Button
-          variant="outline"
-          color="gray"
-          size="1"
-          aria-pressed={debug}
+        </Tag>
+        <Tag buttonRef={walkingTag} pressed={sensorRunning} onClick={toggleSensor} describedBy="walking-mode-help">
+          {sensorRunning ? 'Walking mode on' : 'Walking mode'}
+        </Tag>
+        <Tag
+          pressed={debug}
           onClick={() => {
             setDebug(!debug);
             writeDebugPreference(!debug);
           }}
         >
           Debug
-        </Button>
+        </Tag>
       </div>
-      <span id="walking-mode-help" className={unavailable ? 'k-field__hint' : 'k-sr-only'}>
-        Uses your phone&apos;s motion sensor to detect walking. {unavailable ?? ''}
+      <span id="walking-mode-help" className="k-sr-only">
+        Uses your phone&apos;s motion sensor to detect walking.
       </span>
       <div aria-live="polite" className="k-demo-controls__status">
         {status}
       </div>
-      {snapshot.error ? (
-        <Callout.Root color="red" role="alert" size="1">
-          <Callout.Text>{snapshot.error}</Callout.Text>
-        </Callout.Root>
+      {notice ? (
+        <Notice
+          kind={notice.kind}
+          title={notice.title}
+          action={
+            notice.offerSimulate
+              ? { label: 'Use Simulate walking instead', onClick: () => toggleManual(true) }
+              : undefined
+          }
+          onDismiss={() => {
+            setDismissed(snapshot.error);
+            walkingTag.current?.focus();
+          }}
+        >
+          {notice.body}
+        </Notice>
       ) : null}
-      {debug ? <DebugTools /> : null}
+      {debug ? (
+        <div className="k-debug-panel">
+          <DebugTools />
+        </div>
+      ) : null}
       {debug ? <DebugOverlay /> : null}
     </section>
   );
+}
+
+/** Resume at the first open question before the stepper renders (Stepper also does this on mount). */
+function jumpToOpenQuestion() {
+  formModel.jumpToFirstUnanswered();
 }

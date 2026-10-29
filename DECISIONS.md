@@ -100,7 +100,7 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 ## False positives (being wrong is expected)
 
 - **Debounce:** the hysteresis above.
-- **Persistent "Show full form" control** in moving mode, always in the same top-bar position. A tap forces the full form until the detector really sees the user stop, so the next walk can simplify again. After 3 taps moving mode is suppressed for the session (page lifetime), with a visible "Turn back on". The policy is headless (`createShowFullPolicy`).
+- **Persistent "Show full form" control** in moving mode, always in the same place (the mode bar under the demo controls). A tap forces the full form until the detector really sees the user stop, so the next walk can simplify again. After 3 taps moving mode is suppressed for the session (page lifetime), with a visible "Turn back on". The policy is headless (`createShowFullPolicy`).
 - **Deferred fields:** deferrable questions get "Later" in the stepper, collect under "N questions for later" (always visible as a chip, listed on the done step) and are highlighted "Saved for later" in the full form.
 - **Answers survive every switch:** both presentations render the same `FormState`; every answer is saved to the model and to localStorage on change.
 
@@ -114,12 +114,21 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 - The toggle is a Switch in the full form but two large Yes/No cards in the stepper. A switch that auto-advances is ambiguous (did the user mean to flip it back?) and is a small target.
 - The slider's displayed default ("Never") is confirmed by pressing Next, because Radix only reports value changes, so the minimum could not otherwise be chosen.
 - Back is a large button in the bottom thumb bar plus a swipe-right gesture (ignored when it starts on an input or slider).
-**Reduce, don't rearrange:** the top bar, the field area and the bottom actions keep their positions; moving mode removes content rather than moving it.
+**Reduce, don't rearrange, with one documented exception:** the header, demo controls and mode bar (with "Show full form") keep their positions in both modes, and moving mode removes content rather than moving it. The exception is the stepper itself, which anchors to the thumb zone: it fills the viewport (`100dvh` minus the header and controls) with a flexible spacer on top, then progress, question, field, helper text and the Back/Later/Next bar. The input and every control sit in the lower part of the screen, reachable with one thumb, and the keyboard pushes nothing around because the input is already right above the bar. The full form keeps its normal top-to-bottom flow.
+**Focus and the keyboard:** see "Accessibility basics" below. Text-like steps render one `<input>` element for all consecutive text steps.
 
 ### Persistence
 `createStoragePersistence(() => window.localStorage, key)`: the storage getter itself, `getItem`, `JSON.parse` and `setItem` are all wrapped in try/catch, because Safari private mode, blocked storage and quota errors throw. Corrupt or mismatched data (different schema id or version) is ignored; the form then renders empty. `currentStep` and errors are not persisted (they are view state).
 
 ## UI and Radix Themes
+
+### Dark theme
+**Chosen:** `<Theme appearance="dark" accentColor="blue" grayColor="slate" radius="large">`, pill-shaped (`radius: full`) tags and links, `color-scheme: dark` and `<meta name="theme-color">` (#111113, Radix slate-1) so the phone's browser chrome matches. Dark only, no toggle.
+**Why:** the demo is used outdoors on a phone and a dark UI with Radix tokens keeps contrast predictable; the visual language follows the owner's reference (header with logo and GitHub pill, pill tags, hero, tabs).
+
+### Hash-routed landing page
+**Chosen:** `#/` is a landing page (what it is, install snippets, the model), `#/demo` is the sign-up demo. A 10-line `useHashRoute` hook over `hashchange`; no router dependency, and it works on any static host without rewrite rules. `?debug` lives before the hash, so `/?debug#/demo` works. On a route change focus moves to the page's `<h1>` and the document title updates.
+**Rejected:** a router library (overkill for two pages) and path routing (needs host rewrites).
 
 ### Radix Themes
 **Chosen:** Radix Themes for Slider, Switch, RadioCards, TextField, Button, Badge and Callout. Keyboard and ARIA behavior come from Radix primitives, so the demo concentrates on the motion-specific decisions.
@@ -139,10 +148,14 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 - Real `<label>`s, or `aria-labelledby` for groups.
 - Errors linked with `aria-describedby`, and `aria-invalid` on the control.
 - Visible `:focus-visible` outlines.
-- On a step change, focus moves to the question heading, not the input, so the phone keyboard does not pop up unasked. Progress ("Question 2 of 5") is in an `aria-live="polite"` region.
+- **On a step change, focus goes to the step's control** (the input; the first radio card, Yes or the selected one; the slider thumb), not to the heading. This reverses an earlier choice (heading focus, so the keyboard would not pop up unasked). Why: the one-thumb flow is "type, Next, type"; the keyboard should stay up from the email step to the name step instead of closing and reopening (layout jumping open → closed → open is also an accessibility problem), and the control's label is the question, so screen readers announce it. Progress ("Question 2 of 5") stays in an `aria-live="polite"` region. The done step has no control, so it focuses its heading.
+- **Same element across text steps.** All text-like fields are one component (`TextInputField`, email is a format of it) and the stepper gives consecutive text steps the same React key (`stepper-text-input`). The `<input>` is never remounted; `id`, `name`, `type`, `inputMode`, `autoComplete`, `value` and the `<label for>` change in place, so focus and the virtual keyboard survive. Verified: same element handle, zero blur events across the email → first name transition.
+- **Thumb-bar buttons do not take focus on pointer input** (`pointerdown`/`mousedown` → `preventDefault`, shared as `keepFocus`), so tapping Back, Later or Next does not blur the input. Keyboard users still Tab to them and press Enter or Space; Enter in the input is Next (`enterkeyhint="next"`).
+- **iOS limit.** Safari opens the keyboard only for `focus()` called inside a user gesture. Entering moving mode from the "Simulate walking" tag renders the stepper with `flushSync` and focuses the input in the same tap handler, so the keyboard opens. A sensor-triggered switch (no gesture) and the 300 ms auto-advance after a choice still call `focus()`: Android Chrome may show the keyboard, iOS focuses the control without it until the user taps. Not testable in Chromium; needs a real iPhone.
+- **Keyboard-aware layout.** The viewport meta has `interactive-widget=resizes-content`, so Chrome on Android resizes the layout viewport and the bar stays above the keyboard. iOS Safari does not resize it, so `useKeyboardInset()` publishes `--k-keyboard-inset = max(0, innerHeight - visualViewport.height - visualViewport.offsetTop)` on `<html>` (resize and scroll events; guarded when `visualViewport` is missing). The stepper pads its bottom by it and the sticky thumb bar sits at `bottom: var(--k-keyboard-inset, 0)`.
 - On a failed full-form submit, focus goes to the first invalid control.
 - `prefers-reduced-motion` disables transitions. There are no slide animations at all.
-- Contrast comes from Radix's default palette.
+- Contrast comes from Radix's palette (gray-11/12 on gray-1/2 in dark); axe reports no violations on the landing and demo pages. One override: solid accent buttons use the page background as text color (`--accent-contrast`), because white on Radix's bright dark-mode blue is only 3.3:1. Focus rings use accent-10, one step lighter than Radix's default, to stay clear on dark surfaces.
 
 ## Email input
 Mobile keyboard (`type="email"`, `inputmode="email"`, `autocomplete="email"`), autocorrect, auto-capitalization and spellcheck off. Domain chips (@gmail.com, @icloud.com, @outlook.com), typo suggestions by edit distance ("gmial.com, did you mean gmail.com?") and whitespace normalization are pure functions in `core/form/email.ts`. The suggestion never blocks submitting: the user may really mean that domain.
@@ -151,7 +164,8 @@ Chips use `onPointerDown` → `preventDefault` so the input keeps focus and the 
 
 ## Demo tooling
 
-- **Demo controls are one compact row** (Simulate walking, Walking mode, Debug) at Radix size 1, explicitly opted out of the moving-mode target floor. They stand in for an input device, not product UI, and an earlier version that sat in flow pushed the stepper to the bottom of the phone screen.
+- **Demo controls are a row of pill tags** under the header (Simulate walking, Walking mode, Debug): horizontally scrollable, no visible scrollbar, 44 px tall, `aria-pressed` toggles whose state is shown by a ring/check icon as well as the tint (not color alone). They stand in for an input device, not product UI, so they do not grow in moving mode. The row is `role="group"`, not `role="toolbar"`: a toolbar promises arrow-key navigation we do not implement, and three buttons reachable with Tab are simpler and correct. The stepper no longer depends on how tall this area is (it is bottom-anchored), which removes the earlier problem of controls in flow pushing the stepper down.
+- **Source errors are notification cards** (`Notice`: icon, title, body, optional "Use Simulate walking instead", dismiss; errors `role="alert"`, info `role="status"`, slide-in only without `prefers-reduced-motion`). The wording is mapped from core's error strings in one file (`demo-controls/notices.ts`). The notice appears when the user taps Walking mode, not on load; dismissing it returns focus to the Walking mode tag.
 - **The debug overlay is a read-only, fixed read-out** (`pointer-events: none`, not a live region because it updates several times per second), placed bottom-left above the thumb bar so it covers neither "Show full form" nor Back/Next. Interactive tools (simulated cadence slider, reset Show-full, clear answers) live in a collapsed "Debug tools" disclosure.
 - **The simulator source** makes the hysteresis testable on a desktop without a phone (1.8 steps/s → moving after about 7 s).
 

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { Badge, Button, Heading } from '@radix-ui/themes';
 import { useFormModel } from '@kinetic-ui/react';
 import { FieldRenderer } from '../fields/FieldRenderer';
-import { focusField } from '../fields/focusField';
+import { focusField, focusStepperControl } from '../fields/focusField';
 import { normalizeEmailAnswers } from '../fields/normalize';
+import { keepFocus } from '../ui/keepFocus';
 import { useUiSize } from '../ui/useUiSize';
 import { formModel as model, showFull } from '../stores';
 import { useSwipeBack } from './useSwipeBack';
@@ -12,7 +13,11 @@ import { useSwipeBack } from './useSwipeBack';
 /** Delay so the user sees their selection before an unambiguous tap advances. */
 const AUTO_ADVANCE_MS = 300;
 
-/** One question at a time, built for thumbs: bottom bar, big targets, no surprise keyboards. */
+/**
+ * One question at a time, built for thumbs: everything sits in the lower part
+ * of the screen (spacer on top, then question, field, thumb bar), so the input
+ * is right above the bar and the keyboard moves nothing.
+ */
 export function Stepper() {
   const state = useFormModel(model);
   const { buttonSize } = useUiSize();
@@ -34,12 +39,28 @@ export function Stepper() {
     model.jumpToFirstUnanswered();
   }, []);
 
-  // New step: move focus to the heading, not the input (which would pop up the keyboard).
-  useEffect(() => {
+  // New step: focus the step's control. The control's label is the question, so a screen reader
+  // announces it; "Question n of N" comes from the live region.
+  // Platform limit: iOS opens the keyboard only for focus() inside a user gesture. A tap that
+  // starts moving mode or presses Back/Next qualifies; a sensor-triggered switch or the 300 ms
+  // auto-advance does not (iOS focuses the control without a keyboard until the user taps it).
+  // Android Chrome may show the keyboard anyway. Text steps keep the SAME input element, so focus
+  // and the keyboard survive from one text step to the next.
+  useLayoutEffect(() => {
     clearAdvance();
-    headingRef.current?.focus();
-    return clearAdvance;
-  }, [step]);
+    let retry = 0;
+    if (isDone) headingRef.current?.focus();
+    else {
+      focusStepperControl();
+      // Radix Slider hides its thumb until its own layout effect has measured it: try once more
+      // on the next frame if nothing inside the stepper took focus.
+      if (!document.activeElement?.closest('.k-stepper')) retry = requestAnimationFrame(focusStepperControl);
+    }
+    return () => {
+      cancelAnimationFrame(retry);
+      clearAdvance();
+    };
+  }, [step, isDone]);
 
   const swipe = useSwipeBack(() => model.back());
 
@@ -75,63 +96,70 @@ export function Stepper() {
 
   const canDefer = field?.deferrable === true && !model.isAnswered(field.id);
 
+  const textLike = field?.kind === 'text';
+
   return (
     <form className="k-stepper" onSubmit={onSubmit} noValidate {...swipe}>
-      <div className="k-stepper__header">
-        <div aria-live="polite">
-          {isDone ? 'All questions visited' : `Question ${step + 1} of ${fields.length}`}
+      <div className="k-stepper__spacer" aria-hidden="true" />
+
+      <div className="k-stepper__group">
+        <div className="k-stepper__header">
+          <div aria-live="polite">
+            {isDone ? 'All questions visited' : `Question ${step + 1} of ${fields.length}`}
+          </div>
+          {pending.length > 0 ? (
+            <Badge asChild size="3" color="amber">
+              <button type="button" onClick={() => model.goTo(fields.length)}>
+                {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
+              </button>
+            </Badge>
+          ) : null}
         </div>
-        {pending.length > 0 ? (
-          <Badge asChild size="3" color="amber">
-            <button type="button" onClick={() => model.goTo(fields.length)}>
-              {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
-            </button>
-          </Badge>
-        ) : null}
-      </div>
 
-      <div className="k-stepper__body">
-        <Heading as="h2" ref={headingRef} tabIndex={-1} className="k-stepper__heading">
-          {isDone ? "That's everything for now" : field.label}
-        </Heading>
+        <div className="k-stepper__body">
+          <Heading as="h2" ref={headingRef} tabIndex={isDone ? -1 : undefined} className="k-stepper__heading">
+            {isDone ? "That's everything for now" : field.label}
+          </Heading>
 
-        {isDone ? (
-          <>
-            {pending.length > 0 ? (
-              <section aria-labelledby="later-heading">
-                <h3 id="later-heading">
-                  {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
-                </h3>
-                <ul className="k-later-list">
-                  {pending.map((id) => {
-                    const index = fields.findIndex((f) => f.id === id);
-                    return (
-                      <li key={id}>
-                        <Button type="button" variant="soft" size={buttonSize} onClick={() => model.goTo(index)}>
-                          {fields[index]?.label}
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-            <div>
-              <Button type="button" variant="outline" size={buttonSize} onClick={() => showFull.showFull()}>
-                Review full form
-              </Button>
-            </div>
-          </>
-        ) : (
-          <FieldRenderer
-            key={field.id}
-            field={field}
-            value={state.answers[field.id]}
-            error={state.errors[field.id]}
-            onChange={onChange}
-            presentation="step"
-          />
-        )}
+          {isDone ? (
+            <>
+              {pending.length > 0 ? (
+                <section aria-labelledby="later-heading">
+                  <h3 id="later-heading">
+                    {pending.length} {pending.length === 1 ? 'question' : 'questions'} for later
+                  </h3>
+                  <ul className="k-later-list">
+                    {pending.map((id) => {
+                      const index = fields.findIndex((f) => f.id === id);
+                      return (
+                        <li key={id}>
+                          <Button type="button" variant="soft" size={buttonSize} onClick={() => model.goTo(index)}>
+                            {fields[index]?.label}
+                          </Button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ) : null}
+              <div>
+                <Button type="button" variant="outline" size={buttonSize} onClick={() => showFull.showFull()}>
+                  Review full form
+                </Button>
+              </div>
+            </>
+          ) : (
+            <FieldRenderer
+              // One key for all text-like steps: React keeps the same <input> (and its focus).
+              key={textLike ? 'stepper-text-input' : field.id}
+              field={field}
+              value={state.answers[field.id]}
+              error={state.errors[field.id]}
+              onChange={onChange}
+              presentation="step"
+            />
+          )}
+        </div>
       </div>
 
       <div className="k-thumb-bar">
@@ -141,6 +169,7 @@ export function Stepper() {
           color="gray"
           size={buttonSize}
           disabled={step === 0}
+          {...keepFocus}
           onClick={() => {
             clearAdvance();
             model.back();
@@ -151,11 +180,11 @@ export function Stepper() {
         {isDone ? null : (
           <div className="k-thumb-bar__end">
             {canDefer ? (
-              <Button type="button" variant="outline" size={buttonSize} onClick={defer}>
+              <Button type="button" variant="outline" size={buttonSize} {...keepFocus} onClick={defer}>
                 Later
               </Button>
             ) : null}
-            <Button type="submit" size={buttonSize}>
+            <Button type="submit" size={buttonSize} {...keepFocus}>
               Next
             </Button>
           </div>
