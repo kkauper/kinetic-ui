@@ -129,13 +129,13 @@ jobs:
           echo "Using NDK at $ndk"
           echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
       - name: Install the Android platform
-        # compileSdk is 37. Gradle would download it on demand, but only after licences are accepted.
+        # compileSdk is 37 (package id android-37.0). Gradle would download it on demand, but only after licences are accepted.
         run: |
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           set +o pipefail
           yes | "$sdkmanager" --licenses > /dev/null
           set -o pipefail
-          "$sdkmanager" --install "platforms;android-37"
+          "$sdkmanager" --install "platforms;android-37.0" "build-tools;37.0.0"
       - name: Build the native libraries
         run: scripts/build-android.sh
       - name: Build the AAR
