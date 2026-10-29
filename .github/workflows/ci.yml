@@ -37,9 +37,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+        # Installs the toolchain pinned in rust-toolchain.toml (rustup 1.28+, preinstalled).
+        run: rustup toolchain install
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
       - name: Format
@@ -63,7 +62,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        # Installs the toolchain pinned in rust-toolchain.toml (rustup 1.28+, preinstalled).
+        run: rustup toolchain install
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
       - name: Set up Java
@@ -78,3 +78,39 @@ jobs:
       - name: Test Kotlin bindings
         working-directory: native/android
         run: ./gradlew :bindings-test:test
+
+  # First real compile of the Core Motion / SwiftUI code: builds the XCFramework, runs the Swift
+  # tests on macOS and builds the demo app for the iOS Simulator (no signing).
+  apple:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Rust
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios aarch64-apple-darwin x86_64-apple-darwin
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+          cargo --version
+      - name: Build the XCFramework
+        run: scripts/build-xcframework.sh
+      - name: Test Swift package
+        working-directory: native/apple
+        run: swift test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the demo project
+        working-directory: native/apple/Demo
+        run: xcodegen
+      - name: Build the demo app
+        working-directory: native/apple/Demo
+        run: >
+          xcodebuild -project KineticDemo.xcodeproj -scheme KineticDemo
+          -destination 'generic/platform=iOS Simulator' -configuration Debug
+          build CODE_SIGNING_ALLOWED=NO

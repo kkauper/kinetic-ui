@@ -1,0 +1,7 @@
+# Pins the compiler for local builds and CI so lint results cannot drift between them.
+# Apple targets are added by the CI `apple` job, not here, so Linux contributors
+# do not download iOS standard libraries.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
