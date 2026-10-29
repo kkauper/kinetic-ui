@@ -135,9 +135,13 @@ UniFFI is MPL-2.0: file-level copyleft that applies to changes to UniFFI's own f
 ### Font
 **Chosen:** Hanken Grotesk (OFL-1.1), self-hosted as a variable font via `@fontsource-variable/hanken-grotesk`, so the demo makes no third-party font requests (GDPR). Set through Radix's `--default-font-family` / `--heading-font-family` in `tokens.css`; code stays monospace.
 
-### Hash-routed landing page
-**Chosen:** `#/` is a landing page (what it is, install snippets, the model), `#/demo` is the sign-up demo. A 10-line `useHashRoute` hook over `hashchange`; no router dependency, and it works on any static host without rewrite rules. `?debug` lives before the hash, so `/?debug#/demo` works. On a route change focus moves to the page's `<h1>` and the document title updates.
-**Rejected:** a router library (overkill for two pages) and path routing (needs host rewrites).
+### Path routes with an SPA fallback
+**Chosen:** `/` is a landing page (what it is, install snippets, the model), `/demo` is the sign-up demo, `/privacy` is the privacy notice, and any other path shows "Page not found". Clean URLs were the reason to leave hash routes. A small router (`route/router.ts`, `route/Link.tsx`) uses the History API: `pushState` plus a `popstate` listener, no dependency. Internal links are real `<a href>` elements; only plain left clicks are intercepted, so cmd/ctrl/middle-click still open a new tab. `?debug` is carried across navigation. On a route change the page scrolls to the top, focus moves to the `<h1>` and the document title updates. Cloudflare serves `index.html` for unknown paths with `"not_found_handling": "single-page-application"` under `assets` in `wrangler.jsonc`; Vite's dev and preview servers already fall back to `index.html`. Old hash links (`/?debug#/demo`) are rewritten on load with `history.replaceState` to `/demo?debug`.
+**Rejected:** a router library (overkill for three pages) and keeping hash routes (works on any static host, but the URLs are uglier and the privacy page should have a plain address).
+
+### Privacy by design
+**Chosen:** no backend, so there is nothing to collect. Form answers and debug preferences live only in the visitor's `localStorage` (`kinetic-ui:signup`, `kinetic-ui:debug-readout`), motion data is processed in the browser and never sent, the font is self-hosted (no Google Fonts request), and there are no cookies, analytics or third-party scripts. The only processing is Cloudflare's technical connection data as host (Art. 6(1)(f) GDPR), described on `/privacy`, which also lists the visitor's rights and the contact (`legal/contact.ts`).
+**Why no consent banner:** `localStorage` is strictly necessary for the function the visitor uses (saving their own answers, remembering a preference) and never leaves the device, so Art. 5(3) ePrivacy Directive and § 25(2) TDDDG do not require consent. Anything that would change this (analytics, a third-party embed, sending answers) needs a new look at the notice and the consent question first. This is a design note, not legal advice.
 
 ### Radix Themes
 **Chosen:** Radix Themes for Slider, Switch, RadioCards, TextField, Button, Badge and Callout. Keyboard and ARIA behavior come from Radix primitives, so the demo concentrates on the motion-specific decisions.

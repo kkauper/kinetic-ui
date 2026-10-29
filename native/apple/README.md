@@ -50,6 +50,10 @@ The engine takes three kinds of `Sample`, all stamped with milliseconds on one c
 
 **`FormStore`** wraps `FormModel` and stores answers in `UserDefaults` under `kinetic-ui:signup`, the same JSON as the web's localStorage.
 
+## Privacy
+
+The demo app processes motion and activity data on the device only, stores answers in `UserDefaults` on the device, sends nothing and has no analytics. See https://kineticui.kauper.co/privacy.
+
 ## Permissions
 
 Motion data needs `NSMotionUsageDescription` in Info.plist (the demo's `project.yml` sets it). The prompt appears the first time `ActivitySource` starts; the source waits for the answer, so a refusal becomes an error message instead of silence. Denied or restricted access (Settings > Privacy & Security > Motion & Fitness, Screen Time) is shown as a notification card (same wording as the web demo) that offers "Use Simulate walking instead"; the debug sheet still has "Use accelerometer". `CMMotionManager` (accelerometer source) needs no permission.

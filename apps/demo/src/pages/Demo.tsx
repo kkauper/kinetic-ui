@@ -7,6 +7,7 @@ import { Notice } from '../demo-controls/Notice';
 import { focusField, focusStepperControl } from '../fields/focusField';
 import { FullForm } from '../FullForm';
 import { Header } from '../layout/Header';
+import { Link } from '../route/Link';
 import { usePageFocus } from '../route/usePageFocus';
 import { Stepper } from '../stepper/Stepper';
 import { formModel, motionStore, showFull } from '../stores';
@@ -136,6 +137,14 @@ export function Demo() {
             <span className="k-modebar__label">Full form</span>
           )}
         </div>
+        {shown === 'moving' ? null : (
+          <p className="k-demo-note">
+            Demo only: nothing is sent. Your answers stay on this device.{' '}
+            <Link className="k-link" to="/privacy">
+              Privacy
+            </Link>
+          </p>
+        )}
         {suppressed ? (
           <Notice
             kind="info"

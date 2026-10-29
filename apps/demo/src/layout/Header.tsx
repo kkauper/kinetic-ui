@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties, RefObject } from 'react';
+import { Link } from '../route/Link';
 import { GitHubMark, LogoMark } from './icons';
 
 export const REPO_URL = 'https://github.com/kkauper/kinetic-ui';
@@ -109,9 +110,9 @@ export function Header({ title }: HeaderProps) {
             <Wordmark />
           </h1>
         ) : (
-          <a className="k-brand" href="#/" aria-label="Kinetic UI home">
+          <Link className="k-brand" to="/" aria-label="Kinetic UI home">
             <Wordmark />
-          </a>
+          </Link>
         )}
         <a
           ref={pill}

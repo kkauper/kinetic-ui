@@ -3,6 +3,7 @@ import { Tabs } from '@radix-ui/themes';
 import { Pill } from '../ui/Pill';
 import { copyText } from '../ui/copyText';
 import { Header, REPO_URL } from '../layout/Header';
+import { Link } from '../route/Link';
 import { usePageFocus } from '../route/usePageFocus';
 
 interface Snippet {
@@ -169,9 +170,9 @@ export function Landing() {
               <p className="k-card__text k-card__text--muted">
                 Walking mode needs HTTPS, and on iPhone it asks for motion access once.
               </p>
-              <a className="k-pill-link k-pill-link--primary" href="#/demo">
+              <Link className="k-pill-link k-pill-link--primary" to="/demo">
                 Start the demo
-              </a>
+              </Link>
             </div>
           </Tabs.Content>
 

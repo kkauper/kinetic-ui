@@ -1,7 +1,7 @@
 {
   "name": "Kinetic UI demo",
   "short_name": "Kinetic UI",
-  "start_url": "./",
+  "start_url": "/",
   "display": "standalone",
   "theme_color": "#111113",
   "background_color": "#111113",

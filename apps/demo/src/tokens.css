@@ -1166,3 +1166,98 @@ html {
   min-height: 44px;
   padding-inline: 16px;
 }
+
+/* Footer: on every page, after the page content. */
+.k-footer {
+  margin-top: auto;
+  padding: 24px 0 calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--gray-a5);
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+}
+
+.k-footer__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.k-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 8px;
+  color: var(--gray-11);
+  text-underline-offset: 3px;
+}
+
+.k-footer a:hover {
+  color: var(--gray-12);
+}
+
+/* Moving mode: the stepper fills the viewport, so the footer sits below the fold, never under the thumb bar. */
+[data-motion='moving'] .k-main {
+  min-height: calc(100dvh - var(--k-header-h));
+}
+
+.k-demo-note {
+  margin: 0;
+  padding: 4px 0 12px;
+  color: var(--gray-11);
+  font-size: var(--font-size-2);
+  line-height: 1.5;
+}
+
+/* Prose pages (privacy, not found) */
+.k-prose {
+  padding-bottom: 48px;
+  color: var(--gray-12);
+  line-height: 1.6;
+}
+
+.k-prose__title {
+  margin: 16px 0 16px;
+  font-size: var(--k-title-size);
+  letter-spacing: -0.03em;
+}
+
+.k-prose h2 {
+  margin: 32px 0 8px;
+  font-size: var(--font-size-6);
+  letter-spacing: -0.02em;
+}
+
+.k-prose h3 {
+  margin: 20px 0 4px;
+  font-size: var(--font-size-4);
+}
+
+.k-prose p,
+.k-prose ul {
+  max-width: 62ch;
+  margin: 0 0 12px;
+}
+
+.k-prose ul {
+  padding-inline-start: 1.25rem;
+}
+
+.k-prose li {
+  margin-bottom: 6px;
+}
+
+.k-prose code {
+  font: 0.9em ui-monospace, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.k-prose__summary {
+  padding: 16px 20px;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-5);
+  background: var(--gray-2);
+}

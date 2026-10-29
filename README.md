@@ -368,6 +368,10 @@ DECISIONS.md                   design record
 
 More in [DECISIONS.md](DECISIONS.md#known-limits).
 
+## Privacy
+
+The demo is a playground: it has no backend and collects nothing. The sign-up form sends nothing anywhere. Your answers and the debug preferences are saved only in your browser's localStorage on your own device (`kinetic-ui:signup`, `kinetic-ui:debug-readout`), and motion sensor data is processed in the browser and never sent. There are no cookies, no analytics, no tracking and no third-party requests (the font is self-hosted). The site is hosted on Cloudflare, which processes technical connection data (such as the IP address) to deliver pages. Details: https://kineticui.kauper.co/privacy. Contact: [privacy@kauper.co](mailto:privacy@kauper.co).
+
 ## License
 
 Copyright 2026 Kai Kauper. Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).

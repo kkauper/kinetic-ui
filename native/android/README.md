@@ -100,3 +100,7 @@ Font: Hanken Grotesk, bundled (`demo/src/main/res/font/hanken_grotesk.ttf`, copi
 - `kinetic/build.gradle.kts` adds `../../generated/kotlin` and `packages/spec/generated` as source directories: the generated code is compiled in place, never copied. Regenerate with `scripts/generate-bindings.sh` (or `scripts/build-android.sh`).
 - AGP 9 compiles Kotlin itself ("built-in Kotlin"), so only the Compose compiler plugin is applied next to the Android plugins.
 - Not verified without a device: Transition API delivery, the permission flow, sensor behaviour, TalkBack and the UI at runtime. See DECISIONS.md, "Android".
+
+## Privacy
+
+The demo app processes motion and activity data on the device only, stores answers in `SharedPreferences` on the device, sends nothing and has no analytics. See https://kineticui.kauper.co/privacy.
