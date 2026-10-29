@@ -1,6 +1,5 @@
 import { Theme } from '@radix-ui/themes';
 import { useMotionAttribute } from '@kinetic-ui/react';
-import { Header } from './layout/Header';
 import { Demo } from './pages/Demo';
 import { Landing } from './pages/Landing';
 import { useHashRoute } from './route/useHashRoute';
@@ -15,7 +14,6 @@ function Shell() {
 
   return (
     <div className="k-app">
-      <Header />
       {route === 'demo' ? <Demo /> : <Landing />}
     </div>
   );

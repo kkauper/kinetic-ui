@@ -6,6 +6,7 @@ import { DemoControls } from '../demo-controls/DemoControls';
 import { Notice } from '../demo-controls/Notice';
 import { focusField, focusStepperControl } from '../fields/focusField';
 import { FullForm } from '../FullForm';
+import { Header } from '../layout/Header';
 import { usePageFocus } from '../route/usePageFocus';
 import { Stepper } from '../stepper/Stepper';
 import { formModel, motionStore, showFull } from '../stores';
@@ -112,37 +113,40 @@ export function Demo() {
   }, [mode]);
 
   return (
-    <main className="k-page">
-      <h1 ref={h1} tabIndex={-1} className="k-sr-only">
-        Kinetic UI sign-up demo
-      </h1>
-      <DemoControls />
-      <div role="status" className="k-sr-only">
-        {announcement}
-      </div>
-      {/* Same place in both modes: the label in still mode becomes the escape hatch in moving mode. */}
-      <div className="k-modebar">
-        {shown === 'moving' ? (
-          <>
-            <span className="k-modebar__label">Simplified</span>
-            <Pill variant="soft" size={buttonSize} onClick={() => showFull.showFull()}>
-              Show full form
-            </Pill>
-          </>
-        ) : (
-          <span className="k-modebar__label">Full form</span>
-        )}
-      </div>
-      {suppressed ? (
-        <Notice
-          kind="info"
-          title="Simplified mode is off for this session"
-          action={{ label: 'Turn back on', onClick: () => showFull.resetSession() }}
-        />
-      ) : null}
-      <div className="k-main">{shown === 'moving' ? <Stepper /> : <FullForm />}</div>
-      {shown === 'moving' ? null : <PinnedReadout placement="page" />}
-      <KeyboardProxy ref={proxy} />
-    </main>
+    <>
+      <Header />
+      <main className="k-page">
+        <h1 ref={h1} tabIndex={-1} className="k-sr-only">
+          Kinetic UI sign-up demo
+        </h1>
+        <DemoControls />
+        <div role="status" className="k-sr-only">
+          {announcement}
+        </div>
+        {/* Same place in both modes: the label in still mode becomes the escape hatch in moving mode. */}
+        <div className="k-modebar">
+          {shown === 'moving' ? (
+            <>
+              <span className="k-modebar__label">Simplified</span>
+              <Pill variant="soft" size={buttonSize} onClick={() => showFull.showFull()}>
+                Show full form
+              </Pill>
+            </>
+          ) : (
+            <span className="k-modebar__label">Full form</span>
+          )}
+        </div>
+        {suppressed ? (
+          <Notice
+            kind="info"
+            title="Simplified mode is off for this session"
+            action={{ label: 'Turn back on', onClick: () => showFull.resetSession() }}
+          />
+        ) : null}
+        <div className="k-main">{shown === 'moving' ? <Stepper /> : <FullForm />}</div>
+        {shown === 'moving' ? null : <PinnedReadout placement="page" />}
+        <KeyboardProxy ref={proxy} />
+      </main>
+    </>
   );
 }

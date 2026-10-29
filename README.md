@@ -232,7 +232,7 @@ Motion sensors need HTTPS, so use the live demo to try walking detection on a ph
 2. iPhone (Safari): tap "Walking mode", allow "Motion & Orientation Access", then walk at a normal pace for 5 to 8 s. The stepper appears. Stop for about 10 s and the full form returns.
    If you tapped "Don't allow", iOS usually remembers it for the site. Close the tab and reopen it, or clear the site's data (usually Settings, Apps, Safari, Advanced, Website Data). Menus move between iOS versions.
 3. Android (Chrome): tap "Walking mode" (a permission prompt may or may not appear, depending on the Chrome version), then walk.
-4. Without a phone: the "Simulate walking" tag flips the mode by hand, and the debug sheet includes a simulated step source with a cadence slider.
+4. Without a phone: on a computer the "Simulate walking" tag flips the mode by hand (a phone shows "Walking mode" instead; the Debug sheet's Input section has both on any device), and the debug sheet includes a simulated step source with a cadence slider.
 
 ### Tuning
 

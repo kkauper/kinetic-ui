@@ -177,36 +177,114 @@ body {
 
 .k-app {
   --k-pad: max(16px, env(safe-area-inset-left), env(safe-area-inset-right));
+  /* border-box: the header-height top padding stays inside the 100dvh, so the page does not overflow. */
+  box-sizing: border-box;
   min-height: 100dvh;
   max-width: 760px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding-left: var(--k-pad);
-  padding-right: var(--k-pad);
+  padding: var(--k-header-h) var(--k-pad) 0;
 }
 
-/* Header */
+/*
+ * Header: fixed at the top on every page, translucent with a backdrop blur.
+ * --k-header-h is the one number the rest of the layout derives from: the page content starts below
+ * it (padding on .k-app) and html's scroll-padding-top is this plus 8px, so a focused element is
+ * never scrolled underneath the header (WCAG 2.4.11 Focus Not Obscured).
+ */
+:root {
+  --k-header-h: calc(64px + env(safe-area-inset-top, 0px));
+  --k-title-size: clamp(2.25rem, 9vw, 3.25rem);
+}
+
+html {
+  scroll-padding-top: calc(var(--k-header-h) + 8px);
+}
+
 .k-header {
+  position: fixed;
+  top: 0;
+  inset-inline: 0;
+  z-index: 10;
+  height: var(--k-header-h);
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--color-background) 72%, transparent);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  backdrop-filter: saturate(160%) blur(16px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .k-header {
+    background: var(--color-background);
+  }
+}
+
+/* Hairline, only once the page has scrolled (a box-shadow, so the header's height does not change). */
+.k-header[data-scrolled='true'] {
+  box-shadow: 0 1px 0 var(--gray-a5);
+}
+
+.k-header__inner {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 64px;
-  padding-block: 10px;
+  max-width: 760px;
+  height: 100%;
+  margin-inline: auto;
+  padding: env(safe-area-inset-top, 0px) var(--k-pad) 0;
 }
 
-.k-header__brand {
+.k-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.5556em;
   min-height: 44px;
+  margin: 0;
+  font-size: var(--k-brand-small, 1.125rem);
+  line-height: 1;
   color: var(--gray-12);
   text-decoration: none;
-  font-size: var(--font-size-4);
   font-weight: 600;
   letter-spacing: -0.01em;
   border-radius: var(--radius-full);
+}
+
+/* 24 px logo at the 18 px compact text size, in em so both scale together. */
+.k-brand svg {
+  flex: none;
+  width: 1.3333em;
+  height: 1.3333em;
+}
+
+/*
+ * Landing: the brand IS the page's h1, drawn at the large size and positioned over the (empty) slot
+ * in the hero. Scrolling drives --k-collapse from 0 to 1 (see Header.tsx): it moves with the content
+ * and shrinks (transform only, so no layout work) until it sits at its compact place.
+ * Shrinking from the large size keeps the text crisp; the custom properties are measured in JS.
+ */
+.k-brand--title {
+  position: absolute;
+  top: var(--k-title-top, calc(var(--k-header-h) + 20px));
+  left: var(--k-pad);
+  min-height: 0;
+  font-size: var(--k-title-size);
+  transform-origin: 0 0;
+  transform: translate3d(0, calc(var(--k-collapse, 0) * var(--k-title-dy, 0px)), 0)
+    scale(calc(1 - var(--k-collapse, 0) * var(--k-title-shrink, 0)));
+}
+
+.k-brand--title:focus-visible {
+  outline-offset: 6px;
+}
+
+.k-hero__title-slot {
+  /* Same height as the large brand (its logo is 4/3 of the text size). */
+  height: calc(var(--k-title-size) * 1.3333);
+  margin: 20px 0 12px;
 }
 
 .k-header__suffix {
@@ -633,44 +711,6 @@ body {
   flex-direction: column;
   gap: 32px;
   padding-bottom: 64px;
-}
-
-.k-topics {
-  display: flex;
-  gap: 8px;
-  margin: 0 calc(var(--k-pad) * -1);
-  padding: 6px var(--k-pad);
-  list-style: none;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.k-topics::-webkit-scrollbar {
-  display: none;
-}
-
-.k-topic {
-  flex: none;
-  padding: 8px 14px;
-  border: 1px solid var(--gray-a6);
-  border-radius: 9999px;
-  background: var(--gray-3);
-  color: var(--gray-12);
-  font-size: var(--font-size-2);
-  white-space: nowrap;
-}
-
-.k-hero__title {
-  margin: 20px 0 12px;
-  font-size: clamp(2.25rem, 9vw, 3.25rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: var(--gray-12);
-}
-
-.k-hero__title:focus-visible {
-  outline-offset: 6px;
-  border-radius: 6px;
 }
 
 .k-hero__intro {

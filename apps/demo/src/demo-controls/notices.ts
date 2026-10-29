@@ -14,6 +14,15 @@ export interface NoticeContent {
  */
 export function noticeForError(error: string): NoticeContent {
   const e = error.toLowerCase();
+  // First: core's wording for this case also mentions HTTPS, which would hit the branch below.
+  if (e.includes('no motion data')) {
+    return {
+      kind: 'error',
+      title: 'No motion data received',
+      body: 'Try on a phone over HTTPS.',
+      offerSimulate: true,
+    };
+  }
   if (e.includes('https') || e.includes('secure')) {
     return {
       kind: 'error',
@@ -35,14 +44,6 @@ export function noticeForError(error: string): NoticeContent {
       kind: 'error',
       title: "This browser doesn't report motion",
       body: 'Try another browser or a phone. Simulate walking works anywhere.',
-      offerSimulate: true,
-    };
-  }
-  if (e.includes('no motion data')) {
-    return {
-      kind: 'error',
-      title: 'No motion data received',
-      body: 'Try on a phone over HTTPS.',
       offerSimulate: true,
     };
   }
