@@ -94,7 +94,32 @@ pub struct MotionConfigPatch {
     pub tick_interval_ms: Option<f64>,
 }
 
+/// Lower bound of [`MotionConfig::min_step_interval_ms`]: a zero interval would let every sample
+/// count as a step.
+pub const MIN_STEP_INTERVAL_FLOOR_MS: f64 = 1.0;
+/// Upper bound of [`MotionConfig::cadence_window_ms`] (5 minutes): the step history it keeps stays small.
+pub const MAX_CADENCE_WINDOW_MS: f64 = 300_000.0;
+
 impl MotionConfig {
+    /// This config with the values that bound memory kept in range: `min_step_interval_ms` at
+    /// least 1 ms and `cadence_window_ms` at most 5 minutes. A non-finite value falls back to the
+    /// default. Defaults are unchanged. Mirrors `boundMotionConfig` in the TypeScript core.
+    #[must_use]
+    pub fn bounded(mut self) -> Self {
+        let defaults = Self::default();
+        self.min_step_interval_ms = if self.min_step_interval_ms.is_finite() {
+            self.min_step_interval_ms.max(MIN_STEP_INTERVAL_FLOOR_MS)
+        } else {
+            defaults.min_step_interval_ms
+        };
+        self.cadence_window_ms = if self.cadence_window_ms.is_finite() {
+            self.cadence_window_ms.min(MAX_CADENCE_WINDOW_MS)
+        } else {
+            defaults.cadence_window_ms
+        };
+        self
+    }
+
     /// A copy of this config with every key present in `patch` replaced.
     #[must_use]
     pub fn patched(&self, patch: &MotionConfigPatch) -> Self {
@@ -114,6 +139,7 @@ impl MotionConfig {
             baseline_ms: p.baseline_ms.unwrap_or(self.baseline_ms),
             tick_interval_ms: p.tick_interval_ms.unwrap_or(self.tick_interval_ms),
         }
+        .bounded()
     }
 }
 
@@ -158,5 +184,23 @@ mod tests {
             ..MotionConfig::default()
         };
         assert_eq!(MotionConfig::default().patched(&config.clone().into()), config);
+    }
+
+    #[test]
+    fn patch_keeps_memory_bounding_values_in_range() {
+        let patch: MotionConfigPatch =
+            serde_json::from_str(r#"{"minStepIntervalMs": 0, "cadenceWindowMs": 1e12}"#).unwrap();
+        let config = MotionConfig::default().patched(&patch);
+        assert_eq!(config.min_step_interval_ms, 1.0);
+        assert_eq!(config.cadence_window_ms, 300_000.0);
+        let patch = MotionConfigPatch {
+            min_step_interval_ms: Some(f64::NAN),
+            cadence_window_ms: Some(f64::INFINITY),
+            ..MotionConfigPatch::default()
+        };
+        let config = MotionConfig::default().patched(&patch);
+        assert_eq!(config.min_step_interval_ms, 200.0);
+        assert_eq!(config.cadence_window_ms, 4000.0);
+        assert_eq!(MotionConfig::default().bounded(), MotionConfig::default());
     }
 }

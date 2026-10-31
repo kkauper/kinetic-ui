@@ -2,7 +2,7 @@ import { createEmitter } from '../store';
 import type { ReadableStore } from '../store';
 import { createCadenceEstimator } from './cadence';
 import type { CadenceDiagnostics } from './cadence';
-import { DEFAULT_MOTION_CONFIG } from './config';
+import { boundMotionConfig, DEFAULT_MOTION_CONFIG } from './config';
 import type { MotionConfig } from './config';
 import { initialMachine, isWalkingActivity, isWalkingCadence, stepMachine } from './machine';
 import type { MachineState } from './machine';
@@ -68,6 +68,12 @@ function defaultScheduler(): Scheduler {
   };
 }
 
+/** False when the timestamp or an acceleration axis of the sample is NaN or infinite. */
+function hasFiniteNumbers(sample: MotionSample): boolean {
+  if (!Number.isFinite(sample.t)) return false;
+  return sample.kind !== 'acceleration' || (Number.isFinite(sample.x) && Number.isFinite(sample.y) && Number.isFinite(sample.z));
+}
+
 function sameSnapshot(a: MotionSnapshot, b: MotionSnapshot): boolean {
   return (Object.keys(a) as (keyof MotionSnapshot)[]).every((key) => a[key] === b[key]);
 }
@@ -77,7 +83,7 @@ function sameSnapshot(a: MotionSnapshot, b: MotionSnapshot): boolean {
  * one observable snapshot. Snapshots are immutable and replaced only on change.
  */
 export function createMotionStore(options: MotionStoreOptions = {}): MotionStore {
-  let config: MotionConfig = { ...DEFAULT_MOTION_CONFIG, ...options.config };
+  let config: MotionConfig = boundMotionConfig({ ...DEFAULT_MOTION_CONFIG, ...options.config });
   const now = options.now ?? (() => Date.now());
   const scheduler = options.scheduler ?? defaultScheduler();
   const estimator = createCadenceEstimator(() => config);
@@ -152,6 +158,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
   }
 
   function handleSample(sample: MotionSample): void {
+    if (!hasFiniteNumbers(sample)) return; // NaN or Infinity would poison the estimator's averages
     for (const listener of [...sampleListeners]) listener(sample);
     if (sample.kind === 'state') {
       explicit = true;
@@ -249,7 +256,7 @@ export function createMotionStore(options: MotionStoreOptions = {}): MotionStore
     },
 
     configure(partial) {
-      config = { ...config, ...partial };
+      config = boundMotionConfig({ ...config, ...partial });
       evaluate();
     },
 

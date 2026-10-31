@@ -15,6 +15,8 @@
 //! another mutating method) without deadlocking. A listener that mutates the
 //! object triggers further notifications, so it should be idempotent.
 
+// A panic in an exported function does not unwind across the FFI: the UniFFI scaffolding (0.32) catches it and reports an error to the foreign caller.
+
 // UniFFI exports take owned arguments (`String`, records); that is the FFI contract, not a smell.
 #![allow(clippy::needless_pass_by_value)]
 
@@ -593,7 +595,9 @@ impl From<AnswerValue> for core_form::AnswerValue {
 impl From<core_form::FieldSchema> for FieldSchema {
     fn from(f: core_form::FieldSchema) -> Self {
         let kind = match f.kind {
-            core_form::FieldKind::Text { format, autocomplete } => FieldKind::Text {
+            core_form::FieldKind::Text {
+                format, autocomplete, ..
+            } => FieldKind::Text {
                 format: format.map(|f| match f {
                     core_form::TextFormat::Email => TextFormat::Email,
                     core_form::TextFormat::Plain => TextFormat::Plain,

@@ -52,3 +52,23 @@ export const DEFAULT_MOTION_CONFIG: MotionConfig = {
   baselineMs: 1000,
   tickIntervalMs: 500,
 };
+
+/** Lower bound of `minStepIntervalMs`: a zero interval would let every sample count as a step. */
+export const MIN_STEP_INTERVAL_FLOOR_MS = 1;
+/** Upper bound of `cadenceWindowMs` (5 minutes): the step history it keeps stays small. */
+export const MAX_CADENCE_WINDOW_MS = 300_000;
+
+/**
+ * `config` with the values that bound memory kept in range: `minStepIntervalMs` at least 1 ms and
+ * `cadenceWindowMs` at most 5 minutes. A non-finite value falls back to the default. Defaults are
+ * unchanged. Mirrors `MotionConfig::bounded` in the Rust core.
+ */
+export function boundMotionConfig(config: MotionConfig): MotionConfig {
+  const minStep = Number.isFinite(config.minStepIntervalMs)
+    ? Math.max(MIN_STEP_INTERVAL_FLOOR_MS, config.minStepIntervalMs)
+    : DEFAULT_MOTION_CONFIG.minStepIntervalMs;
+  const window = Number.isFinite(config.cadenceWindowMs)
+    ? Math.min(MAX_CADENCE_WINDOW_MS, config.cadenceWindowMs)
+    : DEFAULT_MOTION_CONFIG.cadenceWindowMs;
+  return { ...config, minStepIntervalMs: minStep, cadenceWindowMs: window };
+}

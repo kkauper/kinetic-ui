@@ -36,6 +36,7 @@ pub struct MotionEngine {
 impl MotionEngine {
     /// A `still` engine created at `now` ms.
     pub fn new(config: MotionConfig, now: f64) -> Self {
+        let config = config.bounded();
         let machine = initial_machine(now);
         Self {
             config,
@@ -78,6 +79,15 @@ impl MotionEngine {
     /// Feeds one sensor reading. `State` samples bypass hysteresis; `Activity`
     /// and `Acceleration` samples go through the machine.
     pub fn push_sample(&mut self, sample: Sample) -> bool {
+        // NaN or infinite numbers would poison the estimator's averages: ignore the sample.
+        let finite = sample.t().is_finite()
+            && match sample {
+                Sample::Acceleration { x, y, z, .. } => x.is_finite() && y.is_finite() && z.is_finite(),
+                _ => true,
+            };
+        if !finite {
+            return false;
+        }
         let now = sample.t();
         match sample {
             Sample::State { state, .. } => {
@@ -241,6 +251,41 @@ mod tests {
             activity,
             confidence: 1.0,
         }
+    }
+
+    #[test]
+    fn ignores_non_finite_samples() {
+        let mut e = MotionEngine::new(MotionConfig::default(), 0.0);
+        for (t, x, y, z) in [
+            (f64::NAN, 0.0, 0.0, 9.8),
+            (1.0, f64::INFINITY, 0.0, 9.8),
+            (1.0, 0.0, f64::NEG_INFINITY, 9.8),
+            (f64::INFINITY, 0.0, 0.0, f64::NAN),
+        ] {
+            assert!(!e.push_sample(Sample::Acceleration { t, x, y, z }));
+        }
+        assert!(!e.push_sample(activity(f64::NAN, ActivityKind::Walking)));
+        assert_eq!(e.snapshot().state, MotionState::Still);
+        assert_eq!(e.snapshot().cadence, 0.0);
+        // The estimator was never touched: a later sample behaves like the first one.
+        let mut fresh = MotionEngine::new(MotionConfig::default(), 0.0);
+        let s = Sample::Acceleration {
+            t: 5.0,
+            x: 0.0,
+            y: 0.0,
+            z: 9.8,
+        };
+        assert_eq!(e.push_sample(s), fresh.push_sample(s));
+        assert_eq!(e.snapshot(), fresh.snapshot());
+    }
+
+    #[test]
+    fn new_bounds_the_config() {
+        let config = MotionConfig {
+            min_step_interval_ms: 0.0,
+            ..MotionConfig::default()
+        };
+        assert_eq!(MotionEngine::new(config, 0.0).config().min_step_interval_ms, 1.0);
     }
 
     #[test]

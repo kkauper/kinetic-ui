@@ -3,6 +3,7 @@ import synthetic from '@kinetic-ui/spec/fixtures/cadence-traces.json';
 import recorded from '@kinetic-ui/spec/fixtures/cadence-recorded.json';
 import { createFakeClock } from './test-utils';
 import { bindMotionAttribute } from './dom';
+import { DEFAULT_MOTION_CONFIG } from './config';
 import { createMotionStore } from './store';
 import { createManualSource } from './sources/manual';
 import { createSimulatorSource } from './sources/simulator';
@@ -292,5 +293,43 @@ describe('traces without a rhythm', () => {
       emit!({ kind: 'acceleration', t: clock.now(), x, y, z });
       expect(store.getState().state).toBe('still');
     }
+  });
+});
+
+describe('input bounds', () => {
+  it('keeps memory-bounding config values in range, defaults untouched', () => {
+    const store = createMotionStore({ config: { minStepIntervalMs: 0 } });
+    expect(store.config.minStepIntervalMs).toBe(1);
+    store.configure({ cadenceWindowMs: 1e12, minStepIntervalMs: Number.NaN });
+    expect(store.config.cadenceWindowMs).toBe(300_000);
+    expect(store.config.minStepIntervalMs).toBe(200);
+    store.configure({ cadenceWindowMs: Number.POSITIVE_INFINITY });
+    expect(store.config.cadenceWindowMs).toBe(4000);
+    expect(createMotionStore().config).toEqual(DEFAULT_MOTION_CONFIG);
+  });
+
+  it('ignores non-finite samples', async () => {
+    let emit: (sample: MotionSample) => void = () => {};
+    const source: MotionSource = {
+      id: 'test',
+      start: (next) => {
+        emit = next;
+        return Promise.resolve();
+      },
+      stop: () => {},
+    };
+    const store = createMotionStore({ source });
+    await store.start();
+    const before = store.getState();
+    const bad = [
+      { t: Number.NaN, x: 0, y: 0, z: 9.8 },
+      { t: 1, x: Number.POSITIVE_INFINITY, y: 0, z: 9.8 },
+      { t: 1, x: 0, y: Number.NEGATIVE_INFINITY, z: 9.8 },
+      { t: 1, x: 0, y: 0, z: Number.NaN },
+    ];
+    for (const s of bad) emit({ kind: 'acceleration', ...s });
+    emit({ kind: 'activity', t: Number.NaN, activity: 'walking', confidence: 1 });
+    expect(store.getState()).toBe(before);
+    expect(store.getDiagnostics().signal).toBe(0);
   });
 });
