@@ -67,8 +67,8 @@ export function Privacy() {
         <h3>The iOS and Android demo apps</h3>
         <p>
           The demo apps for iOS and Android are not distributed through app stores. They process motion and activity
-          data on the device only. Answers are stored on the device (UserDefaults on iOS, SharedPreferences on
-          Android). Nothing is sent, and there is no analytics.
+          data on the device only. Answers and the "keep readout on screen" setting of the debug sheet are stored on the device
+          (UserDefaults on iOS, SharedPreferences on Android). Nothing is sent, and there is no analytics.
         </p>
 
         <h2>Hosting (Cloudflare)</h2>
