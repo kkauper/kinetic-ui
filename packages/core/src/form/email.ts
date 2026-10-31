@@ -49,6 +49,9 @@ export function emailDomainCompletions(
     .map((domain) => ({ domain, email: `${local}@${domain}` }));
 }
 
+/** Longer domains get no suggestion (real domains are at most 253 characters, the known ones under 12), so the edit table stays small. Counted in UTF-16 units. */
+const MAX_SUGGEST_DOMAIN_LENGTH = 64;
+
 /** Edit distance where swapping two adjacent characters counts as one edit. */
 function editDistance(a: string, b: string): number {
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
@@ -79,6 +82,7 @@ export function suggestEmailDomain(
   const at = text.lastIndexOf('@');
   if (at < 1) return null;
   const domain = text.slice(at + 1);
+  if (domain.length > MAX_SUGGEST_DOMAIN_LENGTH) return null;
   if (!domain.includes('.') || domains.includes(domain)) return null;
   let best: { domain: string; distance: number } | null = null;
   for (const candidate of domains) {

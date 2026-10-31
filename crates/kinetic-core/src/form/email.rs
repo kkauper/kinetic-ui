@@ -63,6 +63,10 @@ pub fn email_domain_completions_in(value: &str, domains: &[&str]) -> Vec<EmailCo
         .collect()
 }
 
+/// Longer domains get no suggestion (real domains are at most 253 characters, the known ones under
+/// 12), so the edit table stays small. Counted in UTF-16 units like the TypeScript original.
+const MAX_SUGGEST_DOMAIN_LENGTH: usize = 64;
+
 /// Edit distance (optimal string alignment, i.e. restricted Damerau-Levenshtein)
 /// where swapping two adjacent characters counts as one edit. Works on UTF-16
 /// code units like the TypeScript original.
@@ -101,6 +105,9 @@ pub fn suggest_email_domain_in(value: &str, domains: &[&str]) -> Option<EmailCom
     let text = normalize_email(value);
     let at = text.rfind('@').filter(|&i| i >= 1)?;
     let domain = &text[at + 1..];
+    if domain.encode_utf16().count() > MAX_SUGGEST_DOMAIN_LENGTH {
+        return None;
+    }
     if !domain.contains('.') || domains.contains(&domain) {
         return None;
     }
@@ -125,6 +132,18 @@ mod tests {
     fn transposition_costs_one_edit() {
         assert_eq!(edit_distance("gmial.com", "gmail.com"), 1);
         assert_eq!(edit_distance("ca", "abc"), 3); // OSA, not full Damerau-Levenshtein (which gives 2)
+    }
+
+    #[test]
+    fn overlong_domains_get_no_suggestion() {
+        let at_limit = format!("a@{}.com", "g".repeat(60)); // 64 characters: still looked at
+        assert!(suggest_email_domain(&at_limit).is_none()); // far from every known domain anyway
+        let long = format!("a@gmial.com{}", ".x".repeat(30));
+        assert!(suggest_email_domain(&long).is_none());
+        let custom = ["a".repeat(70) + ".com"];
+        let custom: Vec<&str> = custom.iter().map(String::as_str).collect();
+        assert!(suggest_email_domain_in(&format!("x@{}.con", "a".repeat(70)), &custom).is_none());
+        assert!(suggest_email_domain_in("x@aaaa.con", &["aaaa.com"]).is_some());
     }
 
     #[test]

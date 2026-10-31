@@ -28,6 +28,12 @@ describe('emailDomainCompletions', () => {
 });
 
 describe('suggestEmailDomain', () => {
+  it('gives no suggestion for a domain longer than 64 characters', () => {
+    const long = `${'a'.repeat(70)}.com`;
+    expect(suggestEmailDomain(`x@${long.replace('com', 'con')}`, [long])).toBeNull();
+    expect(suggestEmailDomain('x@aaaa.con', ['aaaa.com'])?.domain).toBe('aaaa.com');
+    expect(suggestEmailDomain(`bob@gmial.com${'.x'.repeat(30)}`)).toBeNull();
+  });
   it.each([
     ['bob@gmial.com', 'bob@gmail.com'],
     ['bob@gmail.con', 'bob@gmail.com'],

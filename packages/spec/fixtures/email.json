@@ -31,6 +31,7 @@
     {"input": "bob@company.io", "output": null},
     {"input": "bob@gmial", "output": null},
     {"input": "bob", "output": null},
-    {"input": "@gmial.com", "output": null}
+    {"input": "@gmial.com", "output": null},
+    {"input": "bob@gmial.com.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "output": null}
   ]
 }

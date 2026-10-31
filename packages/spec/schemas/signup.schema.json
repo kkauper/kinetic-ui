@@ -9,6 +9,7 @@
       "label": "Email",
       "format": "email",
       "autocomplete": "email",
+      "maxLength": 254,
       "required": true,
       "deferrable": false
     },

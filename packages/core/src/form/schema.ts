@@ -14,6 +14,8 @@ export interface TextFieldSchema extends FieldBase {
   kind: 'text';
   format?: 'email' | 'plain';
   autocomplete?: string;
+  /** Longest text the input accepts (the HTML `maxlength`); a hint for the renderer, not enforced by validation. */
+  maxLength?: number;
 }
 
 export interface ChoiceFieldSchema extends FieldBase {

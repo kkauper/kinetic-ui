@@ -23,6 +23,10 @@ describe('initial state', () => {
     expect(model.getState()).toEqual({ answers: {}, currentStep: 0, deferred: [], errors: {} });
   });
 
+  it('limits the signup email to 254 characters', () => {
+    expect(signupSchema.fields[0]).toMatchObject({ id: 'email', kind: 'text', maxLength: 254 });
+  });
+
   it('signup schema has the five expected fields', () => {
     expect(signupSchema.fields.map((f) => f.id)).toEqual([
       'email',

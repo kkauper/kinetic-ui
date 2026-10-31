@@ -70,6 +70,10 @@ pub enum FieldKind {
         /// HTML/OS autocomplete hint.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         autocomplete: Option<String>,
+        /// Longest text the input accepts, in UTF-16 code units like the HTML `maxlength`.
+        /// A hint for the renderer; validation does not enforce it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_length: Option<u32>,
     },
     /// One of several options.
     #[serde(rename_all = "camelCase")]
@@ -223,6 +227,18 @@ mod tests {
 
     fn err(json: &str) -> String {
         define_schema(json).unwrap_err().to_string()
+    }
+
+    #[test]
+    fn signup_email_field_has_a_max_length() {
+        let schema = define_schema(include_str!("../../../../packages/spec/schemas/signup.schema.json")).unwrap();
+        assert!(matches!(
+            schema.fields[0].kind,
+            FieldKind::Text {
+                max_length: Some(254),
+                ..
+            }
+        ));
     }
 
     #[test]

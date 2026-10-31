@@ -53,6 +53,7 @@ export function TextInputField({ field, value, error, onChange, presentation, la
         autoCorrect={isEmail ? 'off' : undefined}
         spellCheck={isEmail ? false : undefined}
         enterKeyHint={presentation === 'step' ? 'next' : undefined}
+        maxLength={field.maxLength}
         id={ids.control}
         name={field.id}
         size={controlSize}
