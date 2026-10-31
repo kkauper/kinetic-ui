@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is 0.x, the API may change between minor releases.
 
+## Unreleased
+
+- Security: stricter headers (default-src 'none', Trusted Types, COOP/CORP, no referrer, more features off, HSTS for two years).
+
 ## [0.1.0] - 2026-10-29
 
 First release.
