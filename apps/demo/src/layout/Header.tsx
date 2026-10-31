@@ -4,6 +4,8 @@ import { Link } from '../route/Link';
 import { GitHubMark, LogoMark } from './icons';
 
 export const REPO_URL = 'https://github.com/kkauper/kinetic-ui';
+/** The Sensing UI series page, linked from the footer. */
+export const SERIES_URL = 'https://github.com/kkauper/sensing-ui-template#the-series';
 
 /** Compact brand text size in rem. The logo is 4/3 of it (24 px at 18 px). */
 const COMPACT_BRAND_REM = 1.125;
